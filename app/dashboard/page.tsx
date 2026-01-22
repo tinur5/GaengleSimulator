@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import EnergyChart from '../../components/EnergyChart';
 import SocBar from '../../components/SocBar';
+import SankeyChart from '../../components/SankeyChart';
 import { Building, Tenant, SimulationResult } from '../../lib/models';
 import { runSimulation as runSimulationLib } from '../../lib/simulation';
 
@@ -57,11 +58,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Energy Simulator Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-100 p-4 rounded">
+    <div className="max-w-4xl mx-auto p-4">
+      <h1 className="text-2xl md:text-3xl font-bold mb-4">Energy Simulator Dashboard</h1>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div className="bg-gray-100 p-4 rounded touch-auto">
           <h2 className="text-xl mb-2">Building Settings</h2>
           <div className="space-y-2">
             <input
@@ -69,21 +70,21 @@ export default function Dashboard() {
               placeholder="Name"
               value={building.name}
               onChange={(e) => updateBuilding('name', e.target.value)}
-              className="w-full p-2 border rounded"
+                className="w-full p-3 border rounded text-sm"
             />
             <input
               type="number"
               placeholder="PV Peak (kW)"
               value={building.pvPeakKw}
               onChange={(e) => updateBuilding('pvPeakKw', parseFloat(e.target.value))}
-              className="w-full p-2 border rounded"
+              className="w-full p-3 border rounded text-sm"
             />
             <input
               type="number"
               placeholder="Battery Capacity (kW)"
               value={building.capacity}
               onChange={(e) => updateBuilding('capacity', parseFloat(e.target.value))}
-              className="w-full p-2 border rounded"
+              className="w-full p-3 border rounded text-sm"
             />
             <input
               type="number"
@@ -91,32 +92,32 @@ export default function Dashboard() {
               placeholder="Efficiency"
               value={building.efficiency}
               onChange={(e) => updateBuilding('efficiency', parseFloat(e.target.value))}
-              className="w-full p-2 border rounded"
+              className="w-full p-3 border rounded text-sm"
             />
           </div>
         </div>
         
-        <div className="bg-gray-100 p-4 rounded">
+        <div className="bg-gray-100 p-4 rounded touch-auto">
           <h2 className="text-xl mb-2">Tenants</h2>
           {tenants.map(tenant => (
-            <div key={tenant.id} className="flex items-center space-x-2 mb-2">
+            <div key={tenant.id} className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-2">
               <input
                 type="text"
                 placeholder="Name"
                 value={tenant.name}
                 onChange={(e) => updateTenant(tenant.id, 'name', e.target.value)}
-                className="flex-1 p-2 border rounded"
+                className="flex-1 p-3 border rounded text-sm w-full"
               />
               <input
                 type="number"
                 placeholder="Consumption (kW)"
                 value={tenant.consumption}
                 onChange={(e) => updateTenant(tenant.id, 'consumption', parseFloat(e.target.value))}
-                className="w-24 p-2 border rounded"
+                className="w-full sm:w-28 p-3 border rounded text-sm"
               />
               <button
                 onClick={() => removeTenant(tenant.id)}
-                className="bg-red-500 text-white px-2 py-1 rounded"
+                className="bg-red-500 text-white px-3 py-2 rounded w-full sm:w-auto"
               >
                 Remove
               </button>
@@ -124,7 +125,7 @@ export default function Dashboard() {
           ))}
           <button
             onClick={addTenant}
-            className="bg-blue-500 text-white px-4 py-2 rounded"
+            className="bg-blue-500 text-white px-4 py-3 rounded w-full sm:w-auto"
           >
             Add Tenant
           </button>
@@ -138,8 +139,15 @@ export default function Dashboard() {
             <p>Loading simulation...</p>
           ) : (
             <>
-              <SocBar soc={simulationResult.finalSoc} />
-              <EnergyChart data={simulationResult.energyFlow} />
+              <div className="mb-4">
+                <SocBar soc={simulationResult.finalSoc} />
+              </div>
+              <div className="h-56 md:h-96 mb-4">
+                <EnergyChart data={simulationResult.energyFlow} />
+              </div>
+              <div className="h-56 md:h-72">
+                <SankeyChart data={simulationResult.energyFlow} />
+              </div>
             </>
           )}
         </div>

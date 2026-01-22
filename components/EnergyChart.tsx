@@ -24,6 +24,7 @@ export default function EnergyChart({ data }: EnergyChartProps) {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top' as const,
@@ -49,5 +50,9 @@ export default function EnergyChart({ data }: EnergyChartProps) {
     },
   };
 
-  return <Line data={chartData} options={options} />;
+  return (
+    <div className="h-full">
+      <Line data={chartData} options={options} />
+    </div>
+  );
 }
