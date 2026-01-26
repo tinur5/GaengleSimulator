@@ -179,21 +179,63 @@ export default function Dashboard() {
               <SankeyChart 
                 data={{
                   nodes: [
-                    { id: "pv", name: `PV\n${pvProduction.toFixed(1)}kW` },
-                    { id: "battery", name: `Batterie\n${avgSoc.toFixed(0)}%` },
-                    { id: "house", name: `Wohnungen\n${houseConsumption.toFixed(1)}kW` },
-                    { id: "common", name: `Allgemein\n${commonConsumption.toFixed(1)}kW` },
-                    { id: "grid", name: `Stromnetz` },
+                    { id: "pv", name: `PV ${pvProduction.toFixed(1)}kW` },
+                    { id: "wr1", name: `WR1 ${(pvProduction/2).toFixed(1)}kW` },
+                    { id: "wr2", name: `WR2 ${(pvProduction/2).toFixed(1)}kW` },
+                    { id: "bat1", name: `Bat1 ${battery1Soc.toFixed(0)}%` },
+                    { id: "bat2", name: `Bat2 ${battery2Soc.toFixed(0)}%` },
+                    { id: "house", name: `Wohnungen ${houseConsumption.toFixed(1)}kW` },
+                    { id: "common", name: `Allgemein ${commonConsumption.toFixed(1)}kW` },
+                    { id: "grid", name: `Netz` },
                   ],
-                  links: [
-                    { source: 0, target: 2, value: Math.max(1, houseConsumption * 5) },
-                    { source: 0, target: 3, value: Math.max(1, commonConsumption * 5) },
-                    ...(netFlow > 0.5 ? [{ source: 0, target: 1, value: Math.max(1, netFlow * 5) }] : []),
-                    ...(netFlow < -0.5 ? [{ source: 4, target: 2, value: Math.max(1, Math.abs(netFlow) * 5) }] : []),
-                  ]
+                  links: (() => {
+                    const links = [];
+                    
+                    // PV zu beiden Wechselrichtern (gleichmäßig verteilt)
+                    if (pvProduction > 0.1) {
+                      links.push({ source: 0, target: 1, value: (pvProduction / 2) * 10 });
+                      links.push({ source: 0, target: 2, value: (pvProduction / 2) * 10 });
+                    }
+                    
+                    // Berechne Energieaufteilung
+                    const pvPerWR = pvProduction / 2;
+                    const consumptionPerWR = totalConsumption / 2;
+                    const netFlowPerWR = pvPerWR - consumptionPerWR;
+                    
+                    // Wechselrichter zu Verbrauchern (jeweils Hälfte)
+                    const housePerWR = houseConsumption / 2;
+                    const commonPerWR = commonConsumption / 2;
+                    
+                    if (housePerWR > 0.1) {
+                      links.push({ source: 1, target: 5, value: Math.min(pvPerWR, housePerWR) * 10 });
+                      links.push({ source: 2, target: 5, value: Math.min(pvPerWR, housePerWR) * 10 });
+                    }
+                    
+                    if (commonPerWR > 0.1) {
+                      const wr1ToCommon = Math.min(Math.max(0, pvPerWR - housePerWR), commonPerWR);
+                      const wr2ToCommon = Math.min(Math.max(0, pvPerWR - housePerWR), commonPerWR);
+                      if (wr1ToCommon > 0.05) links.push({ source: 1, target: 6, value: wr1ToCommon * 10 });
+                      if (wr2ToCommon > 0.05) links.push({ source: 2, target: 6, value: wr2ToCommon * 10 });
+                    }
+                    
+                    // Überschuss zu Batterien
+                    if (netFlowPerWR > 0.3) {
+                      links.push({ source: 1, target: 3, value: netFlowPerWR * 10 });
+                      links.push({ source: 2, target: 4, value: netFlowPerWR * 10 });
+                    }
+                    
+                    // Defizit vom Netz
+                    if (netFlowPerWR < -0.3) {
+                      const gridPower = Math.abs(netFlowPerWR);
+                      links.push({ source: 7, target: 1, value: gridPower * 10 });
+                      links.push({ source: 7, target: 2, value: gridPower * 10 });
+                    }
+                    
+                    return links;
+                  })()
                 }} 
-                width={600} 
-                height={300} 
+                width={750} 
+                height={320} 
               />
             </div>
           </div>

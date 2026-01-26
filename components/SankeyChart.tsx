@@ -42,16 +42,16 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
         };
 
         const sankeyGen = d3sankey.sankey()
-          .nodeWidth(50)
-          .nodePadding(100)
-          .extent([[40, 40], [width - 40, height - 40]]);
+          .nodeWidth(12)
+          .nodePadding(25)
+          .extent([[130, 15], [width - 100, height - 15]]);
 
         const { nodes: nodesOut, links: linksOut } = sankeyGen({
           nodes: graph.nodes.map((n: any) => ({ ...n })),
           links: graph.links.map((l: any) => ({ ...l })),
         });
 
-        // Draw links
+        // Draw links with colors
         svg.append("g")
           .selectAll("path")
           .data(linksOut)
@@ -59,9 +59,15 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           .append("path")
           .attr("d", d3sankey.sankeyLinkHorizontal())
           .attr("fill", "none")
-          .attr("stroke", "#3b82f6")
-          .attr("stroke-opacity", 0.5)
-          .attr("stroke-width", (d: any) => Math.max(2, d.width));
+          .attr("stroke", (d: any) => {
+            // Color based on source node
+            const sourceId = d.source.id || d.source.index;
+            if (sourceId === 'pv' || sourceId === 0) return '#f59e0b'; // Orange for PV
+            if (sourceId === 'grid' || String(sourceId).includes('grid')) return '#ef4444'; // Red for Grid
+            return '#3b82f6'; // Blue for others
+          })
+          .attr("stroke-opacity", 0.4)
+          .attr("stroke-width", (d: any) => Math.max(1.5, d.width));
 
         // Draw nodes
         const node = svg.append("g")
@@ -75,16 +81,23 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           .attr("y", (d: any) => d.y0)
           .attr("height", (d: any) => Math.max(1, d.y1 - d.y0))
           .attr("width", (d: any) => Math.max(1, d.x1 - d.x0))
-          .attr("fill", "#10b981")
-          .attr("rx", 4);
+          .attr("fill", (d: any) => {
+            const nodeId = d.id || '';
+            if (nodeId.includes('pv')) return '#f59e0b'; // Orange for PV
+            if (nodeId.includes('bat')) return '#8b5cf6'; // Purple for Battery
+            if (nodeId.includes('wr')) return '#06b6d4'; // Cyan for Inverter
+            if (nodeId.includes('grid')) return '#ef4444'; // Red for Grid
+            return '#10b981'; // Green for consumers
+          })
+          .attr("rx", 3);
 
         node.append("text")
-          .attr("x", (d: any) => d.x0 - 10)
+          .attr("x", (d: any) => (d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6))
           .attr("y", (d: any) => (d.y1 + d.y0) / 2)
           .attr("dy", "0.35em")
-          .attr("text-anchor", "end")
-          .attr("font-weight", "bold")
-          .attr("font-size", "12px")
+          .attr("text-anchor", (d: any) => d.x0 < width / 2 ? "start" : "end")
+          .attr("font-weight", "600")
+          .attr("font-size", "13px")
           .attr("fill", "#1f2937")
           .text((d: any) => d.name || d.id);
 
