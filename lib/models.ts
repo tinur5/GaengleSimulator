@@ -1,4 +1,11 @@
 // lib/models.ts
+export interface Battery {
+  id: number;
+  inverterId: number;
+  capacityKwh: number;
+  soc: number; // State of Charge 0-100%
+}
+
 export interface Building {
   id: number;
   name: string;
@@ -6,7 +13,7 @@ export interface Building {
   pvPeakKw: number;
   numInverters?: number;
   inverterPowerKw?: number;
-  batteryCapacityKwh?: number;
+  batteries: Battery[];
   hasPool?: boolean;
   numHeatPumps?: number;
   numProbes?: number;
