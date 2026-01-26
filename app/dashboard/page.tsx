@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Building, Tenant } from '../../lib/models';
 import { calculateTenantConsumption, calculatePVProduction } from '../../lib/simulation';
-import EnergyChart from '../../components/EnergyChart';
 import ConsumptionChart from '../../components/ConsumptionChart';
 import AnnualConsumptionStats from '../../components/AnnualConsumptionStats';
 import SocBar from '../../components/SocBar';
@@ -65,17 +64,90 @@ export default function Dashboard() {
   const totalConsumption = houseConsumption + commonConsumption;
   const netFlow = pvProduction - totalConsumption;
 
-  // Mock energy flow data for charts
-  const energyFlowData = Array.from({ length: 24 }, (_, i) => 
-    Math.max(0, 35 * Math.sin(Math.PI * (i - 6) / 12)) - (2 + 0.5 * Math.sin(i * Math.PI / 12))
-  );
-
-  // Berechne dynamische SOC-Werte basierend auf Netzfluss
-  // Basis-SOC 50%, dann anpassen je nach netFlow
-  const baseSoc = 50;
-  const socAdjustment = netFlow * 15; // 15% pro kW Netzfluss
-  const battery1Soc = Math.max(0, Math.min(100, baseSoc + socAdjustment + (selectedHour > 12 ? 5 : -5)));
-  const battery2Soc = Math.max(0, Math.min(100, baseSoc + socAdjustment - (selectedHour > 12 ? 5 : -5)));
+  // Berechne realistische SOC-Werte über den Tag akkumuliert mit optimierter Strategie
+  const calculateHourlySoc = (startSoc: number, targetHour: number, batteryCapacity: number) => {
+    let soc = startSoc;
+    
+    // Optimierte Energiemanagement-Parameter
+    const config = {
+      minSoc: 12,
+      maxSoc: 95,
+      targetNightSoc: 65,
+      maxChargeRate: 10,
+      maxDischargeRate: 6,
+      nightStart: 21,
+      nightEnd: 6,
+    };
+    
+    for (let hour = 0; hour <= targetHour; hour++) {
+      const pv = calculatePVProduction(building.pvPeakKw, hour, month, building.efficiency);
+      const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, hour, dayOfWeek, month), 0);
+      const common = Object.values(getCommonAreaConsumption(hour, month)).reduce((a: number, b: any) => a + b, 0);
+      const consumption = house + common;
+      
+      // Energie pro Batterie (halber Verbrauch/Produktion)
+      const pvPerBattery = pv / 2;
+      const consumptionPerBattery = consumption / 2;
+      const netFlow = pvPerBattery - consumptionPerBattery;
+      
+      // Bestimme Tageszeit-Strategie
+      const isNight = hour >= config.nightStart || hour < config.nightEnd;
+      
+      let socChange = 0;
+      
+      // PV-Überschuss: Batterie laden
+      if (netFlow > 0.05 && soc < config.maxSoc) {
+        const chargeCapacity = ((config.maxSoc - soc) / 100) * batteryCapacity;
+        const desiredCharge = Math.min(netFlow, config.maxChargeRate);
+        const actualCharge = Math.min(desiredCharge, chargeCapacity);
+        socChange = (actualCharge * building.efficiency / batteryCapacity) * 100;
+      }
+      // PV-Defizit: Batterie entladen (strategisch)
+      else if (netFlow < -0.05) {
+        const deficit = Math.abs(netFlow);
+        
+        if (isNight) {
+          // Nachts: Nur entladen wenn SOC > targetNightSoc
+          if (soc > config.targetNightSoc) {
+            const availableDischarge = ((soc - config.minSoc) / 100) * batteryCapacity;
+            const desiredDischarge = Math.min(deficit, config.maxDischargeRate);
+            const actualDischarge = Math.min(desiredDischarge, availableDischarge);
+            socChange = -(actualDischarge / building.efficiency / batteryCapacity) * 100;
+          }
+        } else {
+          // Tagsüber: Entladen wenn SOC > minSoc
+          if (soc > config.minSoc) {
+            const availableDischarge = ((soc - config.minSoc) / 100) * batteryCapacity;
+            const desiredDischarge = Math.min(deficit, config.maxDischargeRate);
+            const actualDischarge = Math.min(desiredDischarge, availableDischarge);
+            socChange = -(actualDischarge / building.efficiency / batteryCapacity) * 100;
+          }
+        }
+      }
+      
+      // Aktualisiere SOC mit Grenzen
+      soc = Math.max(0, Math.min(100, soc + socChange));
+    }
+    
+    return soc;
+  };
+  
+  // Optimaler Start-SOC basierend auf Monat und Wochentag
+  const calculateOptimalStartSoc = (month: number, dayOfWeek: number): number => {
+    const winterMonths = [12, 1, 2];
+    const isWinter = winterMonths.includes(month);
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    
+    let startSoc = 50; // Basis
+    if (isWinter) startSoc += 15; // Winter: längere Nächte
+    if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
+    
+    return Math.min(85, startSoc);
+  };
+  
+  const startSoc = calculateOptimalStartSoc(month, dayOfWeek);
+  const battery1Soc = calculateHourlySoc(startSoc, selectedHour, 20);
+  const battery2Soc = calculateHourlySoc(startSoc, selectedHour, 20);
   const avgSoc = (battery1Soc + battery2Soc) / 2;
 
   return (
@@ -127,6 +199,28 @@ export default function Dashboard() {
           <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-4 border-l-4 border-red-400">
             <h3 className="text-xs font-bold text-gray-600">🏠 VERBRAUCH</h3>
             <p className="text-3xl font-bold text-red-600 mt-2">{totalConsumption.toFixed(1)} <span className="text-sm">kW</span></p>
+            <div className="mt-2 text-xs text-gray-600 space-y-1">
+              <div className="flex justify-between">
+                <span>Wohnungen:</span>
+                <span className="font-semibold">{houseConsumption.toFixed(1)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• Pool:</span>
+                <span className="font-semibold">{commonAreaData.pool.toFixed(1)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• Heizung:</span>
+                <span className="font-semibold">{commonAreaData.heating.toFixed(1)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• Garage:</span>
+                <span className="font-semibold">{commonAreaData.garage.toFixed(1)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• Boiler:</span>
+                <span className="font-semibold">{commonAreaData.boiler.toFixed(1)} kW</span>
+              </div>
+            </div>
           </div>
 
           <div className={`rounded-lg shadow p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
@@ -140,40 +234,66 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          <div className="lg:col-span-2 bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">📊 24h Energiefluss</h2>
-            <div className="h-80">
-              <EnergyChart data={energyFlowData} />
+        {/* Detaillierte Verbrauchsübersicht */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <div className="bg-white rounded-lg shadow p-3">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">👨‍👩‍👧‍👦 Graf (Tesla)</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div className="flex justify-between">
+                <span>Haushalt:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.7).toFixed(2)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>🚗 Tesla laden:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.3).toFixed(2)} kW</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 mt-1">
+                <span className="font-bold">Total:</span>
+                <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
+              </div>
             </div>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">🔋 Batteriestand</h2>
-            <div className="space-y-4">
-              <SocBar label="Wechselrichter 1" soc={battery1Soc} capacity={building.batteries[0].capacityKwh} />
-              <SocBar label="Wechselrichter 2" soc={battery2Soc} capacity={building.batteries[1].capacityKwh} />
+          
+          <div className="bg-white rounded-lg shadow p-3">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">👵 Wetli (VW)</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div className="flex justify-between">
+                <span>Haushalt:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.8).toFixed(2)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>🚗 VW laden:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.2).toFixed(2)} kW</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 mt-1">
+                <span className="font-bold">Total:</span>
+                <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-3">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">👨‍👩‍👧‍👦 Bürzle (E-Bike)</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div className="flex justify-between">
+                <span>Haushalt:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.98).toFixed(2)} kW</span>
+              </div>
+              <div className="flex justify-between">
+                <span>🚴 E-Bike laden:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.02).toFixed(2)} kW</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 mt-1">
+                <span className="font-bold">Total:</span>
+                <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">💡 24h Haushalt-Verbrauch</h2>
-            <div className="h-80">
-              <ConsumptionChart
-                tenants={tenants}
-                month={month}
-                dayOfWeek={dayOfWeek}
-                currentHour={selectedHour}
-                calculateTenantConsumption={calculateTenantConsumption}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
+        {/* Charts Row 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <div className="lg:col-span-2 bg-white rounded-lg shadow p-4">
             <h2 className="text-lg font-bold mb-3">🌊 Sankey Energiefluss</h2>
             <div className="h-80">
               <SankeyChart 
@@ -191,44 +311,145 @@ export default function Dashboard() {
                   links: (() => {
                     const links = [];
                     
-                    // PV zu beiden Wechselrichtern (gleichmäßig verteilt)
-                    if (pvProduction > 0.1) {
-                      links.push({ source: 0, target: 1, value: (pvProduction / 2) * 10 });
-                      links.push({ source: 0, target: 2, value: (pvProduction / 2) * 10 });
-                    }
+                    // Optimierte Energiemanagement-Parameter
+                    const config = {
+                      minSoc: 12,
+                      maxSoc: 95,
+                      targetNightSoc: 65,
+                      maxDischargeRate: 6,
+                      nightStart: 21,
+                      nightEnd: 6,
+                    };
                     
-                    // Berechne Energieaufteilung
-                    const pvPerWR = pvProduction / 2;
-                    const consumptionPerWR = totalConsumption / 2;
-                    const netFlowPerWR = pvPerWR - consumptionPerWR;
+                    const isNight = selectedHour >= config.nightStart || selectedHour < config.nightEnd;
                     
-                    // Wechselrichter zu Verbrauchern (jeweils Hälfte)
+                    // Verbrauch pro WR (jeweils die Hälfte)
                     const housePerWR = houseConsumption / 2;
                     const commonPerWR = commonConsumption / 2;
+                    const consumptionPerWR = housePerWR + commonPerWR;
                     
-                    if (housePerWR > 0.1) {
-                      links.push({ source: 1, target: 5, value: Math.min(pvPerWR, housePerWR) * 10 });
-                      links.push({ source: 2, target: 5, value: Math.min(pvPerWR, housePerWR) * 10 });
+                    // PV-Leistung pro WR
+                    const pvPerWR = pvProduction / 2;
+                    
+                    // Energiebilanz pro WR
+                    const netFlowPerWR = pvPerWR - consumptionPerWR;
+                    
+                    // === Wechselrichter 1 ===
+                    let wr1Input = 0;
+                    let wr1Output = 0;
+                    
+                    // PV zu WR1
+                    if (pvPerWR > 0.05) {
+                      links.push({ source: 0, target: 1, value: pvPerWR * 10 });
+                      wr1Input += pvPerWR;
                     }
                     
-                    if (commonPerWR > 0.1) {
-                      const wr1ToCommon = Math.min(Math.max(0, pvPerWR - housePerWR), commonPerWR);
-                      const wr2ToCommon = Math.min(Math.max(0, pvPerWR - housePerWR), commonPerWR);
-                      if (wr1ToCommon > 0.05) links.push({ source: 1, target: 6, value: wr1ToCommon * 10 });
-                      if (wr2ToCommon > 0.05) links.push({ source: 2, target: 6, value: wr2ToCommon * 10 });
+                    // Bei Defizit: Batterie1 oder Netz zu WR1 (optimiert)
+                    if (netFlowPerWR < -0.05) {
+                      const deficit = Math.abs(netFlowPerWR);
+                      
+                      // Intelligente Batterienutzung
+                      const shouldUseBattery = isNight 
+                        ? battery1Soc > config.targetNightSoc  // Nachts: Nur wenn über Ziel-SOC
+                        : battery1Soc > config.minSoc;         // Tagsüber: Wenn über Minimum
+                      
+                      if (shouldUseBattery) {
+                        const fromBattery = Math.min(deficit, config.maxDischargeRate);
+                        links.push({ source: 3, target: 1, value: fromBattery * 10 });
+                        wr1Input += fromBattery;
+                        
+                        const fromGrid = deficit - fromBattery;
+                        if (fromGrid > 0.05) {
+                          links.push({ source: 7, target: 1, value: fromGrid * 10 });
+                          wr1Input += fromGrid;
+                        }
+                      } else {
+                        // Batterie geschont -> alles vom Netz
+                        links.push({ source: 7, target: 1, value: deficit * 10 });
+                        wr1Input += deficit;
+                      }
                     }
                     
-                    // Überschuss zu Batterien
-                    if (netFlowPerWR > 0.3) {
-                      links.push({ source: 1, target: 3, value: netFlowPerWR * 10 });
-                      links.push({ source: 2, target: 4, value: netFlowPerWR * 10 });
+                    // WR1 zu Verbrauchern
+                    if (housePerWR > 0.05) {
+                      links.push({ source: 1, target: 5, value: housePerWR * 10 });
+                      wr1Output += housePerWR;
+                    }
+                    if (commonPerWR > 0.05) {
+                      links.push({ source: 1, target: 6, value: commonPerWR * 10 });
+                      wr1Output += commonPerWR;
                     }
                     
-                    // Defizit vom Netz
-                    if (netFlowPerWR < -0.3) {
-                      const gridPower = Math.abs(netFlowPerWR);
-                      links.push({ source: 7, target: 1, value: gridPower * 10 });
-                      links.push({ source: 7, target: 2, value: gridPower * 10 });
+                    // Bei Überschuss: WR1 zu Batterie1 oder Netz
+                    if (netFlowPerWR > 0.05) {
+                      // Batterie laden wenn SOC < 95%
+                      if (battery1Soc < 95) {
+                        links.push({ source: 1, target: 3, value: netFlowPerWR * 10 });
+                        wr1Output += netFlowPerWR;
+                      } else {
+                        // Ins Netz einspeisen
+                        links.push({ source: 1, target: 7, value: netFlowPerWR * 10 });
+                        wr1Output += netFlowPerWR;
+                      }
+                    }
+                    
+                    // === Wechselrichter 2 ===
+                    let wr2Input = 0;
+                    let wr2Output = 0;
+                    
+                    // PV zu WR2
+                    if (pvPerWR > 0.05) {
+                      links.push({ source: 0, target: 2, value: pvPerWR * 10 });
+                      wr2Input += pvPerWR;
+                    }
+                    
+                    // Bei Defizit: Batterie2 oder Netz zu WR2 (optimiert)
+                    if (netFlowPerWR < -0.05) {
+                      const deficit = Math.abs(netFlowPerWR);
+                      
+                      // Intelligente Batterienutzung
+                      const shouldUseBattery = isNight 
+                        ? battery2Soc > config.targetNightSoc  // Nachts: Nur wenn über Ziel-SOC
+                        : battery2Soc > config.minSoc;         // Tagsüber: Wenn über Minimum
+                      
+                      if (shouldUseBattery) {
+                        const fromBattery = Math.min(deficit, config.maxDischargeRate);
+                        links.push({ source: 4, target: 2, value: fromBattery * 10 });
+                        wr2Input += fromBattery;
+                        
+                        const fromGrid = deficit - fromBattery;
+                        if (fromGrid > 0.05) {
+                          links.push({ source: 7, target: 2, value: fromGrid * 10 });
+                          wr2Input += fromGrid;
+                        }
+                      } else {
+                        // Batterie geschont -> alles vom Netz
+                        links.push({ source: 7, target: 2, value: deficit * 10 });
+                        wr2Input += deficit;
+                      }
+                    }
+                    
+                    // WR2 zu Verbrauchern
+                    if (housePerWR > 0.05) {
+                      links.push({ source: 2, target: 5, value: housePerWR * 10 });
+                      wr2Output += housePerWR;
+                    }
+                    if (commonPerWR > 0.05) {
+                      links.push({ source: 2, target: 6, value: commonPerWR * 10 });
+                      wr2Output += commonPerWR;
+                    }
+                    
+                    // Bei Überschuss: WR2 zu Batterie2 oder Netz
+                    if (netFlowPerWR > 0.05) {
+                      // Batterie laden wenn SOC < 95%
+                      if (battery2Soc < 95) {
+                        links.push({ source: 2, target: 4, value: netFlowPerWR * 10 });
+                        wr2Output += netFlowPerWR;
+                      } else {
+                        // Ins Netz einspeisen
+                        links.push({ source: 2, target: 7, value: netFlowPerWR * 10 });
+                        wr2Output += netFlowPerWR;
+                      }
                     }
                     
                     return links;
@@ -236,6 +457,30 @@ export default function Dashboard() {
                 }} 
                 width={750} 
                 height={320} 
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-lg font-bold mb-3">🔋 Batteriestand</h2>
+            <div className="space-y-4">
+              <SocBar label="Wechselrichter 1" soc={battery1Soc} capacity={building.batteries[0].capacityKwh} />
+              <SocBar label="Wechselrichter 2" soc={battery2Soc} capacity={building.batteries[1].capacityKwh} />
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Row 2 */}
+        <div className="grid grid-cols-1 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-lg font-bold mb-3">💡 24h Haushalt-Verbrauch</h2>
+            <div className="h-80">
+              <ConsumptionChart
+                tenants={tenants}
+                month={month}
+                dayOfWeek={dayOfWeek}
+                currentHour={selectedHour}
+                calculateTenantConsumption={calculateTenantConsumption}
               />
             </div>
           </div>

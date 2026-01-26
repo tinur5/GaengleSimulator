@@ -3,7 +3,7 @@
 ## System Architecture
 
 ### Overview
-The GaengleSimulator is a Next.js-based energy management dashboard for the MFH Gängle 2+4 building complex.
+The GaengleSimulator is a Next.js-based energy management dashboard for the MFH Gängle 2+4 building complex with optimized battery management strategy.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -12,24 +12,122 @@ The GaengleSimulator is a Next.js-based energy management dashboard for the MFH 
 │  Dashboard (app/dashboard/page.tsx)         │
 │  ├─ Controls (date, time slider)            │
 │  ├─ KPI Cards (PV, consumption, SOC)       │
-│  └─ Charts (Energy, Consumption, Sankey)   │
+│  ├─ Consumption Details (tenants, cars)    │
+│  └─ Charts (Consumption, Sankey)           │
 ├─────────────────────────────────────────────┤
 │  Components (React + TypeScript)            │
 │  ├─ SocBar (battery visualization)         │
 │  ├─ ConsumptionChart (chart.js)            │
-│  ├─ EnergyChart (net flow)                 │
 │  └─ SankeyChart (energy distribution)      │
+├─────────────────────────────────────────────┤
+│  Energy Management (lib/energyManagement)   │
+│  ├─ Optimal energy flow calculation        │
+│  ├─ Battery state management               │
+│  └─ Day/night strategy switching           │
 ├─────────────────────────────────────────────┤
 │  Simulation Engine (lib/simulation.ts)      │
 │  ├─ PV production model                    │
 │  ├─ Consumption calculations               │
-│  └─ SOC dynamics                            │
+│  └─ Seasonal/hourly profiles               │
 ├─────────────────────────────────────────────┤
 │  Data Models (lib/models.ts)                │
-│  ├─ Building + Battery                     │
+│  ├─ Building + Batteries (2× 20kWh)       │
 │  ├─ Tenant                                 │
 │  └─ Simulation Result                      │
 └─────────────────────────────────────────────┘
+```
+
+## Optimized Energy Management Strategy
+
+### System Performance (Annual Simulation Results)
+
+**Building Configuration:**
+- PV System: 66.88 kWp
+- Batteries: 2× 20 kWh = 40 kWh total
+- Annual Consumption: ~43,743 kWh
+- Annual PV Production: ~139,013 kWh
+
+**Optimized Strategy Results:**
+- ✅ **Autarky Rate: 81.4%** (only 18.6% grid dependency)
+- ✅ **Self-Consumption: 25.0%** of PV production used directly
+- ✅ **Grid Import: 8,116 kWh/year** (81% reduction vs. no PV)
+- ⚠️ **Grid Export: 104,203 kWh/year** (surplus to grid)
+
+### Optimization Parameters
+
+```javascript
+{
+  minSoc: 12%,              // Minimum battery reserve
+  maxSoc: 95%,              // Maximum charge level (battery protection)
+  targetNightSoc: 65%,      // Target SOC for night period (13 kWh reserve)
+  targetDaySoc: 25%,        // Minimum SOC during day
+  maxChargeRate: 10 kW,     // Maximum charging power per battery
+  maxDischargeRate: 6 kW,   // Maximum discharge power per battery
+  nightStart: 21:00,        // Night mode begins
+  nightEnd: 06:00,          // Night mode ends
+}
+```
+
+### Strategy Logic
+
+#### 1. **PV Surplus Mode** (Production > Consumption)
+- **Priority 1:** Charge battery (if SOC < 95%)
+  - Charge rate: min(surplus, 10 kW)
+  - Efficiency: 95% (charge losses)
+- **Priority 2:** Export to grid (if battery full)
+
+#### 2. **PV Deficit Mode - Day** (06:00 - 21:00)
+- **Priority 1:** Use battery (if SOC > 12%)
+  - Discharge rate: min(deficit, 6 kW)
+  - Efficiency: 95% (discharge losses)
+- **Priority 2:** Import from grid (if battery low or insufficient)
+
+#### 3. **PV Deficit Mode - Night** (21:00 - 06:00)
+- **Strategy:** Preserve battery for next day
+- **Priority 1:** Import from grid (default)
+- **Priority 2:** Use battery only if SOC > 65%
+  - Rationale: Save battery capacity for morning peak
+  - Only discharge excess reserves
+
+#### 4. **Dynamic Start SOC** (Midnight)
+- **Base:** 50%
+- **Winter Bonus:** +15% (longer nights, more heating)
+- **Weekend Bonus:** +10% (more daytime consumption)
+- **Result:** 50-85% depending on conditions
+
+### Comparison of Strategies
+
+| Strategy | Autarky Rate | Grid Import | Notes |
+|----------|-------------|-------------|-------|
+| **Optimized** | **81.4%** | **8,116 kWh** | Best balance |
+| Aggressive | 79.8% | 8,840 kWh | Higher battery wear |
+| Baseline | 78.8% | 9,279 kWh | Conservative |
+| Conservative | 77.5% | 9,848 kWh | Battery-protecting |
+
+### Energy Flow Visualization (Sankey Diagram)
+
+The Sankey diagram shows real-time energy flows:
+
+```
+PV (66.88 kW peak)
+  ├─→ WR1 (33.44 kW)
+  │    ├─→ Wohnungen (50%)
+  │    ├─→ Allgemein (50%)
+  │    ├─→ Batterie 1 (if surplus & SOC < 95%)
+  │    └─→ Netz (if battery full)
+  │
+  └─→ WR2 (33.44 kW)
+       ├─→ Wohnungen (50%)
+       ├─→ Allgemein (50%)
+       ├─→ Batterie 2 (if surplus & SOC < 95%)
+       └─→ Netz (if battery full)
+
+Netz
+  ├─→ WR1 (if deficit & battery low/protected)
+  └─→ WR2 (if deficit & battery low/protected)
+
+Batterie 1/2
+  └─→ WR1/2 (if deficit & SOC permits)
 ```
 
 ## Data Flow
@@ -37,13 +135,13 @@ The GaengleSimulator is a Next.js-based energy management dashboard for the MFH 
 ### Time-Based Simulation
 1. User selects date and hour via dashboard controls
 2. Dashboard extracts month and day-of-week
-3. Simulation engine calculates:
-   - PV production (hour, month, season)
-   - Tenant consumption (hour, day, season)
-   - Common area consumption (heating, pool, etc.)
-4. Net flow computed: PV - (tenant + common consumption)
-5. SOC calculated: base 50% + (netFlow × 15%) ± time-variation
-6. Dashboard renders with updated values
+3. **Optimal start SOC calculated** (month, weekend consideration)
+4. **Hour-by-hour simulation** from 00:00 to selected hour:
+   - Calculate PV production (seasonal model)
+   - Calculate consumption (tenant profiles + common areas)
+   - Determine optimal energy flow (surplus/deficit strategy)
+   - Update battery SOC (charge/discharge with efficiency)
+5. Dashboard renders with final SOC and energy flows
 
 ### Component Data Binding
 ```
