@@ -1,18 +1,102 @@
 # Energy Simulator - MFH Gängle 2+4
 
-A Next.js application for simulating energy consumption and storage in buildings with dual battery systems.
+A modern energy management dashboard for real-time simulation of consumption, solar production, and battery storage.
 
-## System Overview
+**🌍 Live App:** [gaengle-simulator.vercel.app](https://gaengle-simulator.vercel.app)  
+**📱 Works on:** Desktop, Tablet, Smartphone
 
-**Building:** MFH Gängle 2+4  
-**PV System:** 66.88 kWp  
-**Battery Storage:** 2× 20 kWh (one per inverter, 40 kWh total)  
-**Tenants:** 3 residential units
+---
 
-## Features
+## 🚀 Quick Start
+
+### For Users (No Technical Skills)
+Simply open the link above in your browser - that's it! 
+- Choose a date and time with the sliders
+- See real-time energy flows
+- Check battery status
+- No login required, no installation
+
+**See:** [USERGUIDE.md](./USERGUIDE.md)
+
+### For Developers
+```bash
+# Clone & setup
+git clone https://github.com/[your-user]/gaengle-simulator.git
+cd gaengle-simulator
+npm install
+
+# Development
+npm run dev         # Runs on localhost:3000
+
+# Production
+npm run build
+npm start
+
+# Deploy to Vercel
+# See DEPLOYMENT.md
+```
+
+**See:** [QUICKSTART.md](./QUICKSTART.md) & [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+---
+
+## Building Overview
+
+**MFH Gängle 2+4**  
+| Parameter | Value |
+|-----------|-------|
+| PV System | 66.88 kWp (2× 33.44 kW inverters) |
+| Battery | 2× 20 kWh (40 kWh total) |
+| Tenants | 3 residential units |
+| Annual Consumption | ~43,743 kWh |
+| Annual PV Production | ~139,013 kWh |
+
+---
+
+## ⚡ Optimized Energy Management
+
+### Performance Metrics (Annual Simulation)
+- **Autarky Rate:** 81.4% ✅
+- **Grid Independence:** Only 18.6% external grid
+- **Grid Import:** 8,116 kWh/year (81% reduction)
+- **Self-Consumption:** 25% of PV production
+
+### Smart Strategy
+- **Day Mode (06:00-21:00):** Maximize battery usage
+- **Night Mode (21:00-06:00):** Preserve battery, use grid
+- **Seasonal Optimization:** Dynamic start SOC (50-85%)
+- **Efficient Charging:** Max 10 kW per battery
+- **Controlled Discharge:** Max 6 kW per battery
+
+**See:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+---
+
+## 📊 Dashboard Features
+
+### System Overview
+- 📊 KPI Cards (PV, Consumption, SOC, Balance)
+- 🌊 Sankey Energy Flow Diagram
+- 💡 24-hour Consumption Profile
+- 🔋 Battery Status (per inverter)
+
+### Detailed Breakdown
+- 👨‍👩‍👧‍👦 Consumption per tenant (with EV/E-bike charging)
+- 🏊 Common areas (Pool, Heating, Garage, Boiler)
+- ☀️ Solar production (seasonal model)
+- 🔌 Grid import/export
+
+### Interactive Controls
+- 📅 Date picker
+- ⏱️ Time slider (hourly resolution)
+- 📈 Real-time energy visualization
+
+---
+
+## 🎯 Features
 
 ### 🔋 Dual Battery System
-- Independent battery tracking per inverter (Wechselrichter 1 & 2)
+- Independent battery tracking per inverter
 - Real-time State of Charge (SOC) visualization
 - Dynamic SOC calculation based on power flow
 - Visual fill effect with energy display (kWh)
@@ -23,11 +107,6 @@ A Next.js application for simulating energy consumption and storage in buildings
 - Consumption tracking per tenant and common areas
 - Net flow monitoring (surplus/deficit)
 - 24-hour energy flow visualization
-
-### 📊 Dashboard
-- Time slider for hour-by-hour simulation (0-23:00)
-- Dynamic cursor in consumption chart
-- Individual battery state bars
 - Average SOC indicator
 - Energy statistics cards
 

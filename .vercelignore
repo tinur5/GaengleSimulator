@@ -1,0 +1,9 @@
+# Vercel ignore file
+node_modules/
+.next/
+.git/
+.gitignore
+*.md
+test-*.js
+lib/energyManagement.js
+lib/simulation.js
