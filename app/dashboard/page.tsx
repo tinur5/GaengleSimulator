@@ -191,54 +191,54 @@ export default function Dashboard() {
 
       <div className="max-w-7xl mx-auto p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg shadow p-4 border-l-4 border-yellow-400">
-            <h3 className="text-xs font-bold text-gray-600">☀️ PV-PRODUKTION</h3>
-            <p className="text-3xl font-bold text-orange-600 mt-2">{pvProduction.toFixed(1)} <span className="text-sm">kW</span></p>
+          <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">☀️ PV</h3>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 mt-1 md:mt-2">{pvProduction.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
           </div>
 
-          <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-4 border-l-4 border-red-400">
-            <h3 className="text-xs font-bold text-gray-600">🏠 VERBRAUCH</h3>
-            <p className="text-3xl font-bold text-red-600 mt-2">{totalConsumption.toFixed(1)} <span className="text-sm">kW</span></p>
-            <div className="mt-2 text-xs text-gray-600 space-y-1">
+          <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-red-400">
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">🏠 VERBRAUCH</h3>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{totalConsumption.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
+            <div className="mt-1 md:mt-2 text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-0.5">
               <div className="flex justify-between">
-                <span>Wohnungen:</span>
-                <span className="font-semibold">{houseConsumption.toFixed(1)} kW</span>
+                <span>Wohn.:</span>
+                <span className="font-semibold">{houseConsumption.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span>• Pool:</span>
-                <span className="font-semibold">{commonAreaData.pool.toFixed(1)} kW</span>
+                <span>Pool:</span>
+                <span className="font-semibold">{commonAreaData.pool.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span>• Heizung:</span>
-                <span className="font-semibold">{commonAreaData.heating.toFixed(1)} kW</span>
+                <span>Heiz.:</span>
+                <span className="font-semibold">{commonAreaData.heating.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span>• Garage:</span>
-                <span className="font-semibold">{commonAreaData.garage.toFixed(1)} kW</span>
+                <span>Garage:</span>
+                <span className="font-semibold">{commonAreaData.garage.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span>• Boiler:</span>
-                <span className="font-semibold">{commonAreaData.boiler.toFixed(1)} kW</span>
+                <span>Boiler:</span>
+                <span className="font-semibold">{commonAreaData.boiler.toFixed(1)}</span>
               </div>
             </div>
           </div>
 
-          <div className={`rounded-lg shadow p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
-            <h3 className="text-xs font-bold text-gray-600">{netFlow > 0 ? '📈 ÜBERSCHUSS' : '📉 DEFIZIT'}</h3>
-            <p className={`text-3xl font-bold mt-2 ${netFlow > 0 ? 'text-green-600' : 'text-gray-600'}`}>{Math.abs(netFlow).toFixed(1)} <span className="text-sm">kW</span></p>
+          <div className={`rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">{netFlow > 0 ? '📈 +' : '📉 -'}</h3>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold mt-1 md:mt-2 ${netFlow > 0 ? 'text-green-600' : 'text-gray-600'}`}>{Math.abs(netFlow).toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-4 border-l-4 border-purple-400">
-            <h3 className="text-xs font-bold text-gray-600">🔋 BATTERIE (∅)</h3>
-            <p className="text-3xl font-bold text-purple-600 mt-2">{avgSoc.toFixed(1)} <span className="text-sm">%</span></p>
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-purple-400">
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">🔋 ∅</h3>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-600 mt-1 md:mt-2">{avgSoc.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
           </div>
         </div>
 
         {/* Detaillierte Verbrauchsübersicht */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          <div className="bg-white rounded-lg shadow p-3">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">👨‍👩‍👧‍👦 Graf (Tesla)</h3>
-            <div className="text-xs text-gray-600 space-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-6">
+          <div className="bg-white rounded-lg shadow p-2 md:p-3">
+            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Graf (Tesla)</h3>
+            <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
                 <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.7).toFixed(2)} kW</span>
@@ -254,9 +254,9 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow p-3">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">👵 Wetli (VW)</h3>
-            <div className="text-xs text-gray-600 space-y-1">
+          <div className="bg-white rounded-lg shadow p-2 md:p-3">
+            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👴👵 Wetli (VW)</h3>
+            <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
                 <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.8).toFixed(2)} kW</span>
@@ -272,9 +272,9 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow p-3">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">👨‍👩‍👧‍👦 Bürzle (E-Bike)</h3>
-            <div className="text-xs text-gray-600 space-y-1">
+          <div className="bg-white rounded-lg shadow p-2 md:p-3">
+            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Bürzle (E-Bike)</h3>
+            <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
                 <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.98).toFixed(2)} kW</span>
@@ -292,10 +292,11 @@ export default function Dashboard() {
         </div>
 
         {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          <div className="lg:col-span-2 bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">🌊 Sankey Energiefluss</h2>
-            <div className="h-80">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
+          <div className="lg:col-span-2 bg-white rounded-lg shadow p-2 md:p-4">
+            <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">⚡ Energiefluss</h2>
+            <div className="w-full overflow-x-auto">
+              <div className="min-w-[600px] h-64 md:h-80">
               <SankeyChart 
                 data={{
                   nodes: [
@@ -456,14 +457,15 @@ export default function Dashboard() {
                   })()
                 }} 
                 width={750} 
-                height={320} 
+                height={280} 
               />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">🔋 Batteriestand</h2>
-            <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow p-2 md:p-4">
+            <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">🔋 Batteriestand</h2>
+            <div className="space-y-2 md:space-y-4">
               <SocBar label="Wechselrichter 1" soc={battery1Soc} capacity={building.batteries[0].capacityKwh} />
               <SocBar label="Wechselrichter 2" soc={battery2Soc} capacity={building.batteries[1].capacityKwh} />
             </div>
@@ -471,10 +473,10 @@ export default function Dashboard() {
         </div>
 
         {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">💡 24h Haushalt-Verbrauch</h2>
-            <div className="h-80">
+        <div className="grid grid-cols-1 gap-3 md:gap-4 mb-4 md:mb-6">
+          <div className="bg-white rounded-lg shadow p-2 md:p-4">
+            <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">💡 24h Haushalt-Verbrauch</h2>
+            <div className="h-48 sm:h-64 md:h-80">
               <ConsumptionChart
                 tenants={tenants}
                 month={month}
@@ -487,7 +489,7 @@ export default function Dashboard() {
         </div>
 
         {/* Annual Stats */}
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <AnnualConsumptionStats
             tenants={tenants}
             calculateTenantConsumption={calculateTenantConsumption}
@@ -495,27 +497,27 @@ export default function Dashboard() {
         </div>
 
         {/* Info Panels */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">👥 Wohnparteien</h2>
-            <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+          <div className="bg-white rounded-lg shadow p-2 md:p-4">
+            <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">👥 Wohnparteien</h2>
+            <div className="space-y-1 md:space-y-2">
               {tenants.map((tenant) => (
-                <div key={tenant.id} className="flex justify-between p-2 bg-gray-50 rounded">
+                <div key={tenant.id} className="flex justify-between p-1.5 md:p-2 bg-gray-50 rounded">
                   <div>
-                    <p className="font-bold text-sm">{tenant.name}</p>
-                    <p className="text-xs text-gray-600">{tenant.livingAreaSqm}m²</p>
+                    <p className="font-bold text-xs md:text-sm">{tenant.name}</p>
+                    <p className="text-[10px] md:text-xs text-gray-600">{tenant.livingAreaSqm}m²</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold">{tenant.consumption} kWh/a</p>
+                    <p className="text-xs md:text-sm font-bold">{tenant.consumption} kWh/a</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-bold mb-3">🏢 Gebäude</h2>
-            <div className="space-y-2 text-sm">
+          <div className="bg-white rounded-lg shadow p-2 md:p-4">
+            <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">🏢 Gebäude</h2>
+            <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
               <p><span className="font-bold">PV:</span> {building.pvPeakKw} kWp</p>
               <p><span className="font-bold">Batterie:</span> {building.capacity} kWh</p>
               <p><span className="font-bold">Effizienz:</span> {(building.efficiency * 100).toFixed(0)}%</p>
