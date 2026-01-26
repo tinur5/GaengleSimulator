@@ -32,7 +32,7 @@ All notable changes to this project will be documented in this file.
 - Dashboard displays dual battery system instead of single battery
 
 ### Technical Details
-- Battery model: 2× 50kWh (100kWh total, per Wechselrichter)
+- Battery model: 2× 20kWh (40kWh total, per Wechselrichter)
 - SOC range: 0-100%
 - Dynamic adjustment: ±15% based on net power flow + time-of-day variation
 - Chart cursor update mechanism: useRef for value persistence + useMemo for plugin stability

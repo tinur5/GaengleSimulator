@@ -14,13 +14,13 @@ export default function Dashboard() {
     id: 1,
     name: 'MFH Gängle 2+4',
     pvPeakKw: 66.88,
-    capacity: 100,
+    capacity: 40,
     efficiency: 0.95,
     numInverters: 2,
     inverterPowerKw: 33.44,
     batteries: [
-      { id: 1, inverterId: 1, capacityKwh: 50, soc: 75 },
-      { id: 2, inverterId: 2, capacityKwh: 50, soc: 65 },
+      { id: 1, inverterId: 1, capacityKwh: 20, soc: 75 },
+      { id: 2, inverterId: 2, capacityKwh: 20, soc: 65 },
     ],
   });
 
@@ -85,7 +85,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
-              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 50 kWh Batterien</p>
+              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
             </div>
             
             <div className="flex gap-4">

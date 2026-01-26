@@ -6,7 +6,7 @@ A Next.js application for simulating energy consumption and storage in buildings
 
 **Building:** MFH Gängle 2+4  
 **PV System:** 66.88 kWp  
-**Battery Storage:** 2× 50 kWh (one per inverter, 100 kWh total)  
+**Battery Storage:** 2× 20 kWh (one per inverter, 40 kWh total)  
 **Tenants:** 3 residential units
 
 ## Features

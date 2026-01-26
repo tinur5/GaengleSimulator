@@ -70,7 +70,7 @@ Dashboard Page
 interface Battery {
   id: number;
   inverterId: number;        // 1 or 2
-  capacityKwh: number;       // 50 kWh each
+  capacityKwh: number;       // 20 kWh each
   soc: number;               // 0-100%
 }
 ```
@@ -78,8 +78,8 @@ interface Battery {
 **Dashboard Storage**:
 ```typescript
 batteries: [
-  { id: 1, inverterId: 1, capacityKwh: 50, soc: 75 },
-  { id: 2, inverterId: 2, capacityKwh: 50, soc: 65 }
+  { id: 1, inverterId: 1, capacityKwh: 20, soc: 75 },
+  { id: 2, inverterId: 2, capacityKwh: 20, soc: 65 }
 ]
 ```
 
