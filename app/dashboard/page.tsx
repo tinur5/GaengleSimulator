@@ -97,10 +97,11 @@ export default function Dashboard() {
     
     let soc = startSoc;
     
-    // Simuliere vom Vortag 00:00 bis zur gewählten Stunde (24h + targetHour)
+    // Simuliere vom Vortag 00:00 bis zur gewählten Stunde
+    // totalHours ist die Anzahl der Stunden von previousDay 00:00 bis targetHour
     const totalHours = 24 + targetHour;
     
-    for (let h = 0; h <= totalHours; h++) {
+    for (let h = 0; h < totalHours; h++) {
       const currentDateTime = new Date(previousDay.getTime() + h * 60 * 60 * 1000);
       const currentHour = currentDateTime.getHours();
       const currentMonth = currentDateTime.getMonth() + 1;

@@ -171,10 +171,11 @@ console.log('05.07.2026 23:00 bis 07.07.2026 02:00:\n');
 console.log('Datum/Zeit          | Stunde | SOC    | SOC-Δ  | PV (kW) | Verbr. | Netto');
 console.log('-'.repeat(80));
 
-// Get details for 06.07 00:00 (includes previous day)
+// Get details for around the transition period
 const detailsFor06 = calculateSOCForDateTime(date1, 2, building, tenants); // Get up to 02:00 for context
 
-detailsFor06.hourlyDetails.slice(-28).forEach((detail) => {
+// Show last 27 hours (previous day from 00:00 to current 02:00)
+detailsFor06.hourlyDetails.slice(-27).forEach((detail) => {
   console.log(`${detail.dateTime} | ${String(detail.hour).padStart(2, '0')}:00  | ${detail.soc.padStart(6)}% | ${detail.socChange.padStart(6)} | ${detail.pv.padStart(7)} | ${detail.consumption.padStart(6)} | ${detail.netFlow.padStart(6)}`);
 });
 

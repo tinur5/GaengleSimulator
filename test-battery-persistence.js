@@ -176,9 +176,9 @@ for (let i = 0; i < results.length - 1; i++) {
   const diff = Math.abs(endSOC - nextStartSOC);
   
   if (diff < 0.01) {
-    console.log(`✅ ${results[i].date} 23:59 → ${results[i+1].date} 00:00: SOC korrekt übernommen (${endSOC.toFixed(2)}%)`);
+    console.log(`✅ ${results[i].date} Ende → ${results[i+1].date} Start: SOC korrekt übernommen (${endSOC.toFixed(2)}%)`);
   } else {
-    console.log(`❌ ${results[i].date} 23:59 (${endSOC.toFixed(2)}%) → ${results[i+1].date} 00:00 (${nextStartSOC.toFixed(2)}%): SOC nicht korrekt! Differenz: ${diff.toFixed(2)}%`);
+    console.log(`❌ ${results[i].date} Ende (${endSOC.toFixed(2)}%) → ${results[i+1].date} Start (${nextStartSOC.toFixed(2)}%): SOC nicht korrekt! Differenz: ${diff.toFixed(2)}%`);
     allGood = false;
   }
 }
