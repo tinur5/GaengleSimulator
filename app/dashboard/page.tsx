@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Building, Tenant } from '../../lib/models';
 import { calculateTenantConsumption, calculatePVProduction } from '../../lib/simulation';
 import ConsumptionChart from '../../components/ConsumptionChart';
 import AnnualConsumptionStats from '../../components/AnnualConsumptionStats';
 import SocBar from '../../components/SocBar';
 import SankeyChart from '../../components/SankeyChart';
-import IssueReportButton from '../../components/IssueReportButton';
+import { OptimizationStrategyType, getAllStrategies, getStrategy } from '../../lib/optimizationStrategies';
+import { LiveModeState, LiveModeSpeed, DEFAULT_LIVE_MODE_STATE, getUpdateInterval, advanceTime } from '../../lib/liveMode';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -32,6 +33,61 @@ export default function Dashboard() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedHour, setSelectedHour] = useState<number>(12);
+  
+  // Optimization strategy state
+  const [selectedStrategy, setSelectedStrategy] = useState<OptimizationStrategyType>('balanced');
+  const [aiOptimizationEnabled, setAiOptimizationEnabled] = useState<boolean>(true);
+  
+  // Live mode state
+  const [liveMode, setLiveMode] = useState<LiveModeState>(DEFAULT_LIVE_MODE_STATE);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Live mode effect
+  useEffect(() => {
+    if (liveMode.isActive && !liveMode.isPaused) {
+      const interval = getUpdateInterval(liveMode.speed);
+      intervalRef.current = setInterval(() => {
+        setLiveMode(prevState => {
+          const newState = advanceTime(prevState);
+          setSelectedHour(newState.currentHour);
+          setSelectedDate(newState.currentDate);
+          return newState;
+        });
+      }, interval);
+      
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+  }, [liveMode.isActive, liveMode.isPaused, liveMode.speed]);
+  
+  // Toggle live mode
+  const toggleLiveMode = () => {
+    setLiveMode(prev => ({
+      ...prev,
+      isActive: !prev.isActive,
+      currentHour: selectedHour,
+      currentDate: selectedDate,
+    }));
+  };
+  
+  // Toggle pause
+  const togglePause = () => {
+    setLiveMode(prev => ({ ...prev, isPaused: !prev.isPaused }));
+  };
+  
+  // Change speed
+  const changeSpeed = (speed: LiveModeSpeed) => {
+    setLiveMode(prev => ({ ...prev, speed }));
+  };
 
   const getCommonAreaConsumption = (hour: number, month: number) => {
     const poolActive = hour >= 8 && hour <= 22;
@@ -65,20 +121,27 @@ export default function Dashboard() {
   const totalConsumption = houseConsumption + commonConsumption;
   const netFlow = pvProduction - totalConsumption;
 
+  // Get current strategy config
+  const currentStrategy = getStrategy(selectedStrategy);
+  const strategyConfig = aiOptimizationEnabled ? currentStrategy.config : {
+    minSoc: 15,
+    maxSoc: 95,
+    targetNightSoc: 70,
+    targetDaySoc: 30,
+    maxChargeRate: 10,
+    maxDischargeRate: 5,
+    nightStart: 20,
+    nightEnd: 6,
+    peakSolarStart: 10,
+    peakSolarEnd: 16,
+  };
+
   // Berechne realistische SOC-Werte über den Tag akkumuliert mit optimierter Strategie
   const calculateHourlySoc = (startSoc: number, targetHour: number, batteryCapacity: number) => {
     let soc = startSoc;
     
-    // Optimierte Energiemanagement-Parameter
-    const config = {
-      minSoc: 12,
-      maxSoc: 95,
-      targetNightSoc: 65,
-      maxChargeRate: 10,
-      maxDischargeRate: 6,
-      nightStart: 21,
-      nightEnd: 6,
-    };
+    // Use the selected strategy config
+    const config = strategyConfig;
     
     for (let hour = 0; hour <= targetHour; hour++) {
       const pv = calculatePVProduction(building.pvPeakKw, hour, month, building.efficiency);
@@ -181,9 +244,106 @@ export default function Dashboard() {
                     value={selectedHour}
                     onChange={(e) => setSelectedHour(parseInt(e.target.value))}
                     className="w-32"
+                    disabled={liveMode.isActive}
                   />
                   <span className="text-lg font-bold text-indigo-600 w-12">{String(selectedHour).padStart(2, '0')}:00</span>
                 </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Optimization and Live Mode Controls */}
+          <div className="border-t border-gray-200 pt-3 mt-3">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Strategy Selection */}
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-600 mb-2">
+                  ⚙️ OPTIMIERUNGSSTRATEGIE
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {getAllStrategies().map(strategy => (
+                    <button
+                      key={strategy.type}
+                      onClick={() => setSelectedStrategy(strategy.type)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        selectedStrategy === strategy.type
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title={strategy.description}
+                    >
+                      {strategy.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="aiOptimization"
+                    checked={aiOptimizationEnabled}
+                    onChange={(e) => setAiOptimizationEnabled(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="aiOptimization" className="text-xs text-gray-600">
+                    🤖 KI-Optimierung aktiviert
+                  </label>
+                </div>
+                {aiOptimizationEnabled && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    <strong>Aktiv:</strong> {currentStrategy.description}
+                  </div>
+                )}
+              </div>
+              
+              {/* Live Mode Controls */}
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-600 mb-2">
+                  🎮 LIVE-MODUS
+                </label>
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={toggleLiveMode}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      liveMode.isActive
+                        ? 'bg-red-500 text-white hover:bg-red-600'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                  >
+                    {liveMode.isActive ? '⏹ Stop' : '▶ Start'}
+                  </button>
+                  
+                  {liveMode.isActive && (
+                    <>
+                      <button
+                        onClick={togglePause}
+                        className="px-4 py-1.5 rounded-lg text-xs font-medium bg-yellow-500 text-white hover:bg-yellow-600"
+                      >
+                        {liveMode.isPaused ? '▶ Resume' : '⏸ Pause'}
+                      </button>
+                      
+                      <div className="flex gap-1">
+                        {([1, 2, 5, 10] as LiveModeSpeed[]).map(speed => (
+                          <button
+                            key={speed}
+                            onClick={() => changeSpeed(speed)}
+                            className={`px-3 py-1.5 rounded text-xs font-medium ${
+                              liveMode.speed === speed
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                          >
+                            {speed}x
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {liveMode.isActive && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Geschwindigkeit: {liveMode.speed}x • {liveMode.isPaused ? 'Pausiert' : 'Läuft'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -191,6 +351,36 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
+        {/* Strategy Info Banner */}
+        {aiOptimizationEnabled && (
+          <div className="mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 rounded-lg p-3 shadow">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚡</span>
+              <div className="flex-1">
+                <h3 className="font-bold text-sm text-indigo-900">{currentStrategy.name}</h3>
+                <p className="text-xs text-gray-700 mt-1">{currentStrategy.description}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                  <div className="bg-white rounded px-2 py-1">
+                    <div className="text-[10px] text-gray-600">Batteriesch.</div>
+                    <div className="text-sm font-bold text-indigo-600">{currentStrategy.priority.batteryPreservation}/10</div>
+                  </div>
+                  <div className="bg-white rounded px-2 py-1">
+                    <div className="text-[10px] text-gray-600">Netzunabh.</div>
+                    <div className="text-sm font-bold text-indigo-600">{currentStrategy.priority.gridIndependence}/10</div>
+                  </div>
+                  <div className="bg-white rounded px-2 py-1">
+                    <div className="text-[10px] text-gray-600">Kosteneinspar.</div>
+                    <div className="text-sm font-bold text-indigo-600">{currentStrategy.priority.costSaving}/10</div>
+                  </div>
+                  <div className="bg-white rounded px-2 py-1">
+                    <div className="text-[10px] text-gray-600">Flexibilität</div>
+                    <div className="text-sm font-bold text-indigo-600">{currentStrategy.priority.flexibility}/10</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">☀️ PV</h3>
@@ -313,15 +503,8 @@ export default function Dashboard() {
                   links: (() => {
                     const links = [];
                     
-                    // Optimierte Energiemanagement-Parameter
-                    const config = {
-                      minSoc: 12,
-                      maxSoc: 95,
-                      targetNightSoc: 65,
-                      maxDischargeRate: 6,
-                      nightStart: 21,
-                      nightEnd: 6,
-                    };
+                    // Use the selected strategy config
+                    const config = strategyConfig;
                     
                     const isNight = selectedHour >= config.nightStart || selectedHour < config.nightEnd;
                     
