@@ -58,11 +58,13 @@ export default function Dashboard() {
       return () => {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
       };
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
   }, [liveMode.isActive, liveMode.isPaused, liveMode.speed]);

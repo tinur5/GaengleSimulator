@@ -195,7 +195,12 @@ export const ALL_STRATEGIES: Record<OptimizationStrategyType, OptimizationStrate
  * Gibt die Strategie für einen gegebenen Typ zurück
  */
 export function getStrategy(type: OptimizationStrategyType): OptimizationStrategy {
-  return ALL_STRATEGIES[type];
+  const strategy = ALL_STRATEGIES[type];
+  if (!strategy) {
+    console.warn(`Strategy type '${type}' not found, falling back to balanced`);
+    return BALANCED_OPTIMIZATION;
+  }
+  return strategy;
 }
 
 /**
