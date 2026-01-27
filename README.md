@@ -116,6 +116,12 @@ npm start
 - Seasonal consumption variations
 - Household consumption profiles
 
+### 🐛 Issue Reporting
+- In-app issue reporting button
+- Direct GitHub issue creation
+- Automatic metadata capture (timestamp, user agent)
+- User-friendly feedback system
+
 ## Getting Started
 
 ### Prerequisites
@@ -131,6 +137,10 @@ cd GaengleSimulator
 
 # Install dependencies
 npm install
+
+# Configure environment variables (optional, for issue reporting)
+cp .env.example .env
+# Edit .env and add your GitHub token
 
 # Build
 npm run build
@@ -203,6 +213,25 @@ This app can be deployed on:
 - **Vercel**: `vercel deploy`
 - **Netlify**: Connect GitHub repository
 - **Traditional VPS**: `npm run build && npm run start`
+
+### Environment Variables
+
+For the issue reporting feature to work, configure the following environment variables:
+
+```bash
+GITHUB_TOKEN=your_github_personal_access_token
+GITHUB_REPO=tinur5/GaengleSimulator
+```
+
+**Creating a GitHub Token:**
+1. Go to GitHub Settings → Developer settings → Personal access tokens
+2. Click "Generate new token (classic)"
+3. Give it a name (e.g., "GaengleSimulator Issue Reporter")
+4. Select the `repo` scope
+5. Click "Generate token"
+6. Copy the token to your `.env` file
+
+**Note:** The app works without the token, but the issue reporting feature will not function.
 
 ## Troubleshooting
 
