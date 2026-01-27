@@ -709,6 +709,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Issue Report Button */}
+      <IssueReportButton />
     </div>
   );
 }
