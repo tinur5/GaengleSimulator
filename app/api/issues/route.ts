@@ -39,20 +39,19 @@ export async function POST(request: NextRequest) {
     const response = await fetch(`https://api.github.com/repos/${githubRepo}/issues`, {
       method: 'POST',
       headers: {
-        'Authorization': `token ${githubToken}`,
-        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `Bearer ${githubToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         title,
         body: issueBody,
-        labels: ['user-reported', 'bug'],
+        labels: ['user-reported'],
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('GitHub API Fehler:', errorData);
+      console.error('GitHub API Fehler - Status:', response.status);
       return NextResponse.json(
         { error: 'Fehler beim Erstellen des Issues' },
         { status: response.status }

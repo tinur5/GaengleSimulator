@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertCircle, CheckCircle, X } from 'lucide-react';
 
 export default function IssueReportButton() {
@@ -11,6 +11,16 @@ export default function IssueReportButton() {
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [issueUrl, setIssueUrl] = useState('');
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +37,7 @@ export default function IssueReportButton() {
         body: JSON.stringify({
           title,
           description,
-          userAgent: navigator.userAgent,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
           timestamp: new Date().toISOString(),
         }),
       });
@@ -38,7 +48,7 @@ export default function IssueReportButton() {
         setStatus('success');
         setIssueUrl(data.issueUrl);
         // Reset form after 3 seconds
-        setTimeout(() => {
+        timeoutRef.current = setTimeout(() => {
           setIsOpen(false);
           setTitle('');
           setDescription('');
