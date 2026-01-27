@@ -180,3 +180,6 @@ A: Die PV ist sehr groß (66.88 kWp) und produziert im Sommer viel mehr als der 
 
 **F: Kann ich die Verbrauchsmuster ändern?**
 A: Nein, die App simuliert realistische Verbrauchsmuster basierend auf Jahreszeit, Wochentag und Uhrzeit.
+
+**F: Wie kann ich ein Problem melden?**
+A: Nutze den roten "Problem melden" Button unten rechts in der App. Dein Problem wird dann direkt als Issue in GitHub erfasst.

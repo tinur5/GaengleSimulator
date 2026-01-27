@@ -7,6 +7,7 @@ import ConsumptionChart from '../../components/ConsumptionChart';
 import AnnualConsumptionStats from '../../components/AnnualConsumptionStats';
 import SocBar from '../../components/SocBar';
 import SankeyChart from '../../components/SankeyChart';
+import IssueReportButton from '../../components/IssueReportButton';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -525,6 +526,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Issue Report Button */}
+      <IssueReportButton />
     </div>
   );
 }
