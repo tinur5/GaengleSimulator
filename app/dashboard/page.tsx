@@ -137,16 +137,53 @@ export default function Dashboard() {
   };
 
   // Berechne realistische SOC-Werte über den Tag akkumuliert mit optimierter Strategie
-  const calculateHourlySoc = (startSoc: number, targetHour: number, batteryCapacity: number) => {
+
+  // Um Plausibilität zu gewährleisten, simulieren wir vom Start des vorherigen Tages
+  const calculateHourlySoc = (selectedDate: Date, targetHour: number, batteryCapacity: number) => {
+    // Optimierte Energiemanagement-Parameter
+    const config = {
+      minSoc: 12,
+      maxSoc: 95,
+      targetNightSoc: 65,
+      maxChargeRate: 10,
+      maxDischargeRate: 6,
+      nightStart: 21,
+      nightEnd: 6,
+    };
+
+    
+    // Starte Simulation am Vortag um 00:00, um kontinuierlichen Batteriezustand zu haben
+    const previousDay = new Date(selectedDate);
+    previousDay.setDate(previousDay.getDate() - 1);
+    previousDay.setHours(0, 0, 0, 0);
+    
+    // Berechne Start-SOC basierend auf Jahreszeit und Wochentag des Vortages
+    const winterMonths = [12, 1, 2];
+    const prevMonth = previousDay.getMonth() + 1;
+    const prevDayOfWeek = previousDay.getDay();
+    const isWinter = winterMonths.includes(prevMonth);
+    const isWeekend = prevDayOfWeek === 0 || prevDayOfWeek === 6;
+    
+    let startSoc = 50; // Basis
+    if (isWinter) startSoc += 15; // Winter: längere Nächte
+    if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
+    startSoc = Math.min(85, startSoc);
+    
     let soc = startSoc;
     
-    // Use the selected strategy config
-    const config = strategyConfig;
+    // Simuliere vom Vortag 00:00 bis zur gewählten Stunde
+    // totalHours ist die Anzahl der Stunden von previousDay 00:00 bis targetHour
+    const totalHours = 24 + targetHour;
     
-    for (let hour = 0; hour <= targetHour; hour++) {
-      const pv = calculatePVProduction(building.pvPeakKw, hour, month, building.efficiency);
-      const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, hour, dayOfWeek, month), 0);
-      const common = Object.values(getCommonAreaConsumption(hour, month)).reduce((a: number, b: any) => a + b, 0);
+    for (let h = 0; h < totalHours; h++) {
+      const currentDateTime = new Date(previousDay.getTime() + h * 60 * 60 * 1000);
+      const currentHour = currentDateTime.getHours();
+      const currentMonth = currentDateTime.getMonth() + 1;
+      const currentDayOfWeek = currentDateTime.getDay();
+      
+      const pv = calculatePVProduction(building.pvPeakKw, currentHour, currentMonth, building.efficiency);
+      const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, currentHour, currentDayOfWeek, currentMonth), 0);
+      const common = Object.values(getCommonAreaConsumption(currentHour, currentMonth)).reduce((a: number, b: any) => a + b, 0);
       const consumption = house + common;
       
       // Energie pro Batterie (halber Verbrauch/Produktion)
@@ -155,7 +192,7 @@ export default function Dashboard() {
       const netFlow = pvPerBattery - consumptionPerBattery;
       
       // Bestimme Tageszeit-Strategie
-      const isNight = hour >= config.nightStart || hour < config.nightEnd;
+      const isNight = currentHour >= config.nightStart || currentHour < config.nightEnd;
       
       let socChange = 0;
       
@@ -195,23 +232,9 @@ export default function Dashboard() {
     
     return soc;
   };
-  
-  // Optimaler Start-SOC basierend auf Monat und Wochentag
-  const calculateOptimalStartSoc = (month: number, dayOfWeek: number): number => {
-    const winterMonths = [12, 1, 2];
-    const isWinter = winterMonths.includes(month);
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    
-    let startSoc = 50; // Basis
-    if (isWinter) startSoc += 15; // Winter: längere Nächte
-    if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
-    
-    return Math.min(85, startSoc);
-  };
-  
-  const startSoc = calculateOptimalStartSoc(month, dayOfWeek);
-  const battery1Soc = calculateHourlySoc(startSoc, selectedHour, 20);
-  const battery2Soc = calculateHourlySoc(startSoc, selectedHour, 20);
+
+  const battery1Soc = calculateHourlySoc(selectedDate, selectedHour, 20);
+  const battery2Soc = calculateHourlySoc(selectedDate, selectedHour, 20);
   const avgSoc = (battery1Soc + battery2Soc) / 2;
 
   return (
