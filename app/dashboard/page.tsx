@@ -607,8 +607,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-2 md:p-4">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">⚡ Energiefluss</h2>
-            <div className="w-full overflow-x-auto">
-              <div className="min-w-[600px] h-64 md:h-80">
+            <div className="w-full">
+              <div className="w-full" style={{ height: 'clamp(250px, 40vw, 320px)' }}>
               <SankeyChart 
                 data={{
                   nodes: [
@@ -760,9 +760,7 @@ export default function Dashboard() {
                     
                     return links;
                   })()
-                }} 
-                width={750} 
-                height={280} 
+                }}
               />
               </div>
             </div>
