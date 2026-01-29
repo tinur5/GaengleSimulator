@@ -118,9 +118,13 @@ npm start
 
 ### 🐛 Issue Reporting
 - In-app issue reporting button
-- Direct GitHub issue creation
+- Dual reporting modes:
+  - **GitHub Integration**: Direct GitHub issue creation
+  - **Email Fallback**: Email notification when GitHub is not configured
 - Automatic metadata capture (timestamp, user agent)
 - User-friendly feedback system
+
+**See:** [ISSUE_REPORTING.md](./ISSUE_REPORTING.md) for configuration
 
 ## Getting Started
 
@@ -139,8 +143,9 @@ cd GaengleSimulator
 npm install
 
 # Configure environment variables (optional, for issue reporting)
-cp .env.example .env
-# Edit .env and add your GitHub token
+cp .env.example .env.local
+# Edit .env.local and add your GitHub token or email configuration
+# See ISSUE_REPORTING.md for details
 
 # Build
 npm run build
