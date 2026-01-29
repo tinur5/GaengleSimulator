@@ -21,24 +21,24 @@ const tenants = [
     ageGroup: 'Familien mit Kindern',
     consumption: 5200,
     householdSize: 4,
-    livingAreaSqm: 160,
-    vehicleType: 'Tesla Model 3'
+    livingAreaSqm: 140,
+    vehicleType: 'VW ID4'
   },
   { 
-    name: 'Wetli', 
+    name: 'Wetly', 
+    ageGroup: 'Familien mit Kindern',
+    consumption: 5200,
+    householdSize: 4,
+    livingAreaSqm: 140,
+    vehicleType: 'Tesla'
+  },
+  { 
+    name: 'Bürzle', 
     ageGroup: 'Pensionierte',
     consumption: 4500,
     householdSize: 2,
     livingAreaSqm: 200,
-    vehicleType: 'VW ID.4'
-  },
-  { 
-    name: 'Bürzle', 
-    ageGroup: 'Familien mit Kindern',
-    consumption: 5200,
-    householdSize: 4,
-    livingAreaSqm: 160,
-    vehicleType: 'E-Bike'
+    vehicleType: 'Porsche Hybrid'
   }
 ];
 

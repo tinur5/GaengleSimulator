@@ -138,8 +138,8 @@ const building = {
 
 const tenants = [
   { id: 1, name: 'Graf', consumption: 5200, ageGroup: 'Familie' },
-  { id: 2, name: 'Wetli', consumption: 4500, ageGroup: 'Pensionierte' },
-  { id: 3, name: 'Bürzle', consumption: 5200, ageGroup: 'Familie' }
+  { id: 2, name: 'Wetly', consumption: 5200, ageGroup: 'Familie' },
+  { id: 3, name: 'Bürzle', consumption: 4500, ageGroup: 'Pensionierte' }
 ];
 
 console.log('\n🔋 BATTERIE-PLAUSIBILITÄTSTEST\n');

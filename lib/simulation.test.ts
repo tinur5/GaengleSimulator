@@ -22,6 +22,10 @@ const testBuilding: Building = {
   efficiency: 0.95,
   numInverters: 2,
   inverterPowerKw: 33.44,
+  batteries: [
+    { id: 1, inverterId: 1, capacityKwh: 50, soc: 75 },
+    { id: 2, inverterId: 2, capacityKwh: 50, soc: 65 },
+  ],
 };
 
 const testTenants: Tenant[] = [
@@ -30,18 +34,18 @@ const testTenants: Tenant[] = [
     name: 'Familie Graf',
     consumption: 5200,
     householdSize: 4,
-    livingAreaSqm: 160,
+    livingAreaSqm: 140,
     ageGroup: 'Familie mit 2 Kindern',
-    vehicleType: 'Tesla Model 3',
+    vehicleType: 'VW ID4',
   },
   {
     id: 2,
-    name: 'Familie Wetli',
+    name: 'Familie Wetly',
     consumption: 5200,
     householdSize: 4,
-    livingAreaSqm: 160,
+    livingAreaSqm: 140,
     ageGroup: 'Familie mit 2 Kindern',
-    vehicleType: 'VW ID.4',
+    vehicleType: 'Tesla',
   },
   {
     id: 3,
@@ -50,7 +54,7 @@ const testTenants: Tenant[] = [
     householdSize: 2,
     livingAreaSqm: 200,
     ageGroup: 'Pensionierte',
-    vehicleType: '-',
+    vehicleType: 'Porsche Hybrid',
   },
 ];
 

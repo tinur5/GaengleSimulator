@@ -113,6 +113,12 @@ const testTenants = [
     ageGroup: 'Familie mit 2 Kindern'
   },
   {
+    id: 2,
+    name: 'Familie Wetly',
+    consumption: 5200,
+    ageGroup: 'Familie mit 2 Kindern'
+  },
+  {
     id: 3,
     name: 'Ehepaar Bürzle',
     consumption: 4500,
