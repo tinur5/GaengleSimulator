@@ -31,9 +31,9 @@ export default function Dashboard() {
   });
 
   const [tenants] = useState<Tenant[]>([
-    { id: 1, name: 'Graf', consumption: 5200, householdSize: 4, livingAreaSqm: 160, ageGroup: 'Familie', vehicleType: 'Tesla' },
-    { id: 2, name: 'Wetli', consumption: 4500, householdSize: 2, livingAreaSqm: 200, ageGroup: 'Pensionierte', vehicleType: 'VW' },
-    { id: 3, name: 'Bürzle', consumption: 4800, householdSize: 3, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'E-Bike' },
+    { id: 1, name: 'Graf', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'VW ID4' },
+    { id: 2, name: 'Wetly', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'Tesla' },
+    { id: 3, name: 'Bürzle', consumption: 4500, householdSize: 2, livingAreaSqm: 200, ageGroup: 'Pensionierte', vehicleType: 'Porsche Hybrid' },
   ]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());

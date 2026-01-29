@@ -70,23 +70,23 @@ const tenants = [
   { 
     name: 'Graf', 
     ageGroup: ['Familien mit Kindern'],
-    eva: 160,
+    eva: 140,
     baseDemand: 5200,
     nPersons: 4
   },
   { 
-    name: 'Wetli', 
+    name: 'Wetly', 
+    ageGroup: ['Familien mit Kindern'],
+    eva: 140,
+    baseDemand: 5200,
+    nPersons: 4
+  },
+  { 
+    name: 'Bürzle', 
     ageGroup: ['Pensionierte'],
     eva: 200,
     baseDemand: 4500,
     nPersons: 2
-  },
-  { 
-    name: 'Bürzle', 
-    ageGroup: ['Familien mit Kindern'],
-    eva: 160,
-    baseDemand: 5200,
-    nPersons: 4
   }
 ];
 
