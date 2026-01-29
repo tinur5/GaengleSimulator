@@ -101,14 +101,19 @@ export default function AnnualConsumptionStats({
 
             {/* Variation */}
             <div className="flex justify-between items-center text-sm text-gray-600">
-              <span>Variation (Max-Min):</span>
-              <span className="font-semibold">{stat.variation}x des Durchschnitts</span>
+              <span className="flex items-center gap-1">
+                Variation:
+                <span className="text-[10px]" title="Berechnung: (Max - Min) / Durchschnitt. Zeigt die relative Schwankung des Verbrauchs über das Jahr.">ⓘ</span>
+              </span>
+              <span className="font-semibold">{stat.variation}× des Ø</span>
             </div>
 
             {/* Saisonal Info */}
             <div className="text-xs text-gray-500 mt-2">
-              <p>
-                Winter schwerer: {(stat.maxDaily - stat.minDaily > stat.avgDaily * 0.5 ? '✓ Ja' : '✗ Nein')}
+              <p className="flex items-center gap-1">
+                Winter-dominiert: 
+                <span className="font-semibold">{(stat.maxDaily - stat.minDaily > stat.avgDaily * 0.4 ? '✓ Ja' : '✗ Nein')}</span>
+                <span title="Wenn die Differenz zwischen max. und min. Tagesverbrauch > 40% des Durchschnitts ist, deutet das auf starken Wintereinfluss (Heizung) hin.">ⓘ</span>
               </p>
             </div>
           </div>

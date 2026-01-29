@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [tenants] = useState<Tenant[]>([
     { id: 1, name: 'Graf', consumption: 5200, householdSize: 4, livingAreaSqm: 160, ageGroup: 'Familie', vehicleType: 'Tesla' },
     { id: 2, name: 'Wetli', consumption: 4500, householdSize: 2, livingAreaSqm: 200, ageGroup: 'Pensionierte', vehicleType: 'VW' },
-    { id: 3, name: 'Bürzle', consumption: 5200, householdSize: 4, livingAreaSqm: 160, ageGroup: 'Familie', vehicleType: 'E-Bike' },
+    { id: 3, name: 'Bürzle', consumption: 4800, householdSize: 3, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'E-Bike' },
   ]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -142,9 +142,15 @@ export default function Dashboard() {
   };
 
   // Berechne realistische SOC-Werte über den Tag akkumuliert mit optimierter Strategie
+  // Jede Batterie wird unabhängig simuliert basierend auf ihrem Wechselrichter
 
   // Um Plausibilität zu gewährleisten, simulieren wir vom Start des vorherigen Tages
-  const calculateHourlySoc = (selectedDate: Date, targetHour: number, batteryCapacity: number) => {
+  const calculateHourlySoc = (
+    selectedDate: Date, 
+    targetHour: number, 
+    batteryCapacity: number, 
+    inverterId: number // 1 or 2
+  ) => {
     // Optimierte Energiemanagement-Parameter
     const config = {
       minSoc: 12,
@@ -172,7 +178,10 @@ export default function Dashboard() {
     let startSoc = 50; // Basis
     if (isWinter) startSoc += 15; // Winter: längere Nächte
     if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
-    startSoc = Math.min(85, startSoc);
+    
+    // Add small variation between batteries (±3%)
+    const batteryVariation = inverterId === 1 ? -2 : 2;
+    startSoc = Math.min(85, Math.max(20, startSoc + batteryVariation));
     
     let soc = startSoc;
     
@@ -238,9 +247,15 @@ export default function Dashboard() {
     return soc;
   };
 
-  const battery1Soc = calculateHourlySoc(selectedDate, selectedHour, 20);
-  const battery2Soc = calculateHourlySoc(selectedDate, selectedHour, 20);
+  // Calculate SOC for each battery independently
+  const battery1Soc = calculateHourlySoc(selectedDate, selectedHour, 20, 1);
+  const battery2Soc = calculateHourlySoc(selectedDate, selectedHour, 20, 2);
   const avgSoc = (battery1Soc + battery2Soc) / 2;
+  
+  // Calculate total battery energy stored
+  const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
+  const battery2Energy = (battery2Soc / 100) * building.batteries[1].capacityKwh;
+  const totalBatteryEnergy = battery1Energy + battery2Energy;
 
   // Calculate battery direction (charging/discharging/idle)
   const getBatteryDirection = (netFlow: number, soc: number): 'charging' | 'discharging' | 'idle' => {
@@ -466,18 +481,24 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
-              ☀️ PV
-              <InfoTooltip text="Aktuelle Photovoltaik-Produktion basierend auf Tageszeit, Monat, Wetter und installierter Leistung (66.88 kWp). Berechnet mit realistischen Sonnenauf-/untergangszeiten und Bewölkungsfaktoren." />
+              ☀️ PV-LEISTUNG
+              <InfoTooltip text="Aktuelle Photovoltaik-Produktionsleistung (kW = Kilowatt) basierend auf Tageszeit, Monat, Wetter und installierter Leistung (66.88 kWp). Berechnet mit realistischen Sonnenauf-/untergangszeiten und Bewölkungsfaktoren. kW ist eine Momentanleistung - über eine Stunde ergibt sich daraus die Energie in kWh (Kilowattstunden)." />
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 mt-1 md:mt-2">{pvProduction.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
+            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+              <span className="font-semibold">Momentanleistung</span> • {(pvProduction * 1).toFixed(1)} kWh/h
+            </div>
           </div>
 
           <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-red-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
               🏠 VERBRAUCH
-              <InfoTooltip text="Gesamtverbrauch aller Wohnungen plus Gemeinschaftsbereiche (Pool, Heizung, Garage, Boiler). Variiert nach Tageszeit, Wochentag und Jahreszeit basierend auf realistischen Lastprofilen." />
+              <InfoTooltip text="Gesamtverbrauch aller Wohnungen plus Gemeinschaftsbereiche (Pool, Heizung, Garage, Boiler) in kW (Kilowatt). Dies ist die momentane Leistungsaufnahme. Variiert nach Tageszeit, Wochentag und Jahreszeit basierend auf realistischen Lastprofilen. Über eine Stunde ergibt sich daraus die Energie in kWh." />
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{totalConsumption.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
+            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+              <span className="font-semibold">Momentanleistung</span> • {(totalConsumption * 1).toFixed(1)} kWh/h
+            </div>
             <div className="mt-1 md:mt-2 text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-0.5">
               <div className="flex justify-between">
                 <span>Wohn.:</span>
@@ -512,10 +533,13 @@ export default function Dashboard() {
 
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-purple-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
-              🔋 ∅
-              <InfoTooltip text="Durchschnittlicher State of Charge (SOC) beider Batterien. Berechnet basierend auf akkumuliertem Energiefluss seit Vortag 00:00 Uhr. 100% = voll geladen, 0% = leer." />
+              🔋 ∅ BATTERIE-SOC
+              <InfoTooltip text="Durchschnittlicher State of Charge (SOC) beider Batterien. Berechnet basierend auf akkumuliertem Energiefluss seit Vortag 00:00 Uhr mit strategie-basierter Lade-/Entladesteuerung. 100% = vollständig geladen (40 kWh gesamt), 0% = leer. Formel: (Batterie1_SOC + Batterie2_SOC) / 2" />
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-600 mt-1 md:mt-2">{avgSoc.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
+            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+              <span className="font-semibold">{totalBatteryEnergy.toFixed(1)} kWh</span> gespeichert von {building.capacity} kWh
+            </div>
           </div>
         </div>
 
@@ -536,6 +560,7 @@ export default function Dashboard() {
                 <span className="font-bold">Total:</span>
                 <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
+              <div className="text-[9px] text-gray-500 mt-1">4 Personen, 160m²</div>
             </div>
           </div>
           
@@ -554,6 +579,7 @@ export default function Dashboard() {
                 <span className="font-bold">Total:</span>
                 <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
+              <div className="text-[9px] text-gray-500 mt-1">2 Personen, 200m²</div>
             </div>
           </div>
           
@@ -572,6 +598,7 @@ export default function Dashboard() {
                 <span className="font-bold">Total:</span>
                 <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
+              <div className="text-[9px] text-gray-500 mt-1">3 Personen, 140m²</div>
             </div>
           </div>
         </div>
@@ -807,8 +834,9 @@ export default function Dashboard() {
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">🏢 Gebäude</h2>
             <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
               <p><span className="font-bold">PV:</span> {building.pvPeakKw} kWp</p>
-              <p><span className="font-bold">Batterie:</span> {building.capacity} kWh</p>
-              <p><span className="font-bold">Effizienz:</span> {(building.efficiency * 100).toFixed(0)}%</p>
+              <p><span className="font-bold">Batterie:</span> {building.capacity} kWh (2× {building.batteries[0].capacityKwh} kWh)</p>
+              <p><span className="font-bold">System-Effizienz:</span> {(building.efficiency * 100).toFixed(0)}% <span className="text-[10px] text-gray-600">(Wechselrichter & Batterie)</span></p>
+              <p><span className="font-bold">Wechselrichter:</span> {building.numInverters}× {building.inverterPowerKw} kW</p>
             </div>
           </div>
         </div>

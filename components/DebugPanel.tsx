@@ -208,6 +208,25 @@ export default function DebugPanel({
               <p><strong>Netto-Energiefluss:</strong> PV - Verbrauch = {pvProduction.toFixed(2)} kW - {totalConsumption.toFixed(2)} kW = {netFlow.toFixed(2)} kW</p>
               <p><strong>Batterie-Energie:</strong> SOC% × Kapazität = {avgSoc.toFixed(1)}% × {totalBatteryCapacity} kWh = {totalBatteryEnergy.toFixed(2)} kWh</p>
               <p><strong>PV-Auslastung:</strong> (Produktion / Peak) × 100 = ({pvProduction.toFixed(2)} / 66.88) × 100 = {((pvProduction / 66.88) * 100).toFixed(1)}%</p>
+              <p><strong>System-Effizienz:</strong> 95% (Wechselrichter & Batterie-Wandlungsverluste)</p>
+            </div>
+          </div>
+
+          {/* Energy Balance Validation */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <h4 className="font-bold text-xs text-green-900 mb-2">✓ Energieerhaltung</h4>
+            <div className="space-y-2 text-xs text-green-800">
+              <p className="font-semibold">Momentan-Bilanz (kW):</p>
+              <div className="ml-3 space-y-1">
+                <p>Eingang: PV-Produktion = {pvProduction.toFixed(2)} kW</p>
+                <p>Ausgang: Haushalte + Gemeinschaft = {totalConsumption.toFixed(2)} kW</p>
+                <p>Differenz: {netFlow.toFixed(2)} kW {netFlow > 0.05 ? '(→ Batterie/Netz laden)' : netFlow < -0.05 ? '(→ Batterie/Netz entladen)' : '(→ ausgeglichen)'}</p>
+              </div>
+              <p className="text-[10px] mt-2 text-gray-600">
+                Hinweis: Die Differenz wird durch Batterieladung/-entladung und Netzaustausch ausgeglichen.
+                Bei Überschuss (positiv): Energie geht in Batterie oder Netz.
+                Bei Defizit (negativ): Energie kommt aus Batterie oder Netz.
+              </p>
             </div>
           </div>
 
