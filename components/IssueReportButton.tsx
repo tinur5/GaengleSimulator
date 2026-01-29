@@ -11,6 +11,7 @@ export default function IssueReportButton() {
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [issueUrl, setIssueUrl] = useState('');
+  const [fallbackUsed, setFallbackUsed] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup timeout on unmount
@@ -46,7 +47,8 @@ export default function IssueReportButton() {
 
       if (response.ok) {
         setStatus('success');
-        setIssueUrl(data.issueUrl);
+        setIssueUrl(data.issueUrl || '');
+        setFallbackUsed(data.fallbackUsed || false);
         // Reset form after 3 seconds
         timeoutRef.current = setTimeout(() => {
           setIsOpen(false);
@@ -54,6 +56,7 @@ export default function IssueReportButton() {
           setDescription('');
           setStatus('idle');
           setIssueUrl('');
+          setFallbackUsed(false);
         }, 3000);
       } else {
         setStatus('error');
@@ -98,18 +101,29 @@ export default function IssueReportButton() {
                 <div className="flex items-start gap-3">
                   <CheckCircle className="text-green-600 mt-0.5" size={20} />
                   <div>
-                    <p className="text-green-800 font-semibold">Issue erfolgreich erstellt!</p>
+                    <p className="text-green-800 font-semibold">
+                      {fallbackUsed ? 'Issue per Email gesendet!' : 'Issue erfolgreich erstellt!'}
+                    </p>
                     <p className="text-green-700 text-sm mt-1">
-                      Ihr Problem wurde gemeldet.{' '}
-                      {issueUrl && (
-                        <a
-                          href={issueUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline"
-                        >
-                          Issue anzeigen
-                        </a>
+                      {fallbackUsed ? (
+                        <>
+                          Ihr Problem wurde per Email an den Administrator gesendet. 
+                          Sie erhalten eine Benachrichtigung, sobald es bearbeitet wird.
+                        </>
+                      ) : (
+                        <>
+                          Ihr Problem wurde gemeldet.{' '}
+                          {issueUrl && (
+                            <a
+                              href={issueUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                            >
+                              Issue anzeigen
+                            </a>
+                          )}
+                        </>
                       )}
                     </p>
                   </div>
