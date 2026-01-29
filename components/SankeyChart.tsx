@@ -101,6 +101,31 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           .attr("fill", "#1f2937")
           .text((d: any) => d.name || d.id);
 
+        // Add link labels showing flow values
+        svg.append("g")
+          .selectAll("text")
+          .data(linksOut.filter((d: any) => d.value > 0.5)) // Only show labels for significant flows
+          .enter()
+          .append("text")
+          .attr("x", (d: any) => {
+            const sourceX = d.source.x1;
+            const targetX = d.target.x0;
+            return (sourceX + targetX) / 2;
+          })
+          .attr("y", (d: any) => {
+            const sourceY = (d.source.y0 + d.source.y1) / 2;
+            const targetY = (d.target.y0 + d.target.y1) / 2;
+            return (sourceY + targetY) / 2;
+          })
+          .attr("text-anchor", "middle")
+          .attr("font-size", "10px")
+          .attr("font-weight", "600")
+          .attr("fill", "#374151")
+          .attr("stroke", "#ffffff")
+          .attr("stroke-width", "3")
+          .attr("paint-order", "stroke")
+          .text((d: any) => `${(d.value / 10).toFixed(1)} kW`);
+
       } catch (e) {
         console.error("Sankey load error:", e);
       }

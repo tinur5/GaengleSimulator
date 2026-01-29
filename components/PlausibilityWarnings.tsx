@@ -78,6 +78,24 @@ export default function PlausibilityWarnings({
     warnings.push(`PV-Produktion (${pvProduction.toFixed(1)} kW) übersteigt installierte Kapazität (66.88 kWp).`);
   }
 
+  // Check 8: Energy balance validation
+  // Note: This is a simplified check - detailed balance requires battery flow rates
+  const netFlow = pvProduction - totalConsumption;
+  if (Math.abs(netFlow) > 70) {
+    warnings.push(`Energiebilanz (${netFlow.toFixed(1)} kW) ist unrealistisch hoch. Überprüfen Sie PV-Produktion und Verbrauch.`);
+  }
+
+  // Check 9: Identical battery SOC warning (should have small variation)
+  const socDifference = Math.abs(battery1Soc - battery2Soc);
+  if (socDifference < 0.5 && battery1Soc > 10 && battery2Soc > 10) {
+    info.push(`Beide Batterien haben nahezu identischen SOC (${battery1Soc.toFixed(1)}% vs ${battery2Soc.toFixed(1)}%). Dies ist ungewöhnlich, aber möglich.`);
+  }
+
+  // Check 10: Battery capacity consistency
+  if (battery1Capacity !== battery2Capacity) {
+    info.push(`Batterien haben unterschiedliche Kapazitäten: Batterie 1 (${battery1Capacity} kWh), Batterie 2 (${battery2Capacity} kWh).`);
+  }
+
   if (warnings.length === 0 && info.length === 0) {
     return null;
   }
