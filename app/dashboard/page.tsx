@@ -14,6 +14,7 @@ import InfoTooltip from '../../components/InfoTooltip';
 import IssueReportButton from '../../components/IssueReportButton';
 import { OptimizationStrategyType, getAllStrategies, getStrategy } from '../../lib/optimizationStrategies';
 import { LiveModeState, LiveModeSpeed, DEFAULT_LIVE_MODE_STATE, getUpdateInterval, advanceTime } from '../../lib/liveMode';
+import { APP_VERSION } from '../../lib/version';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -288,7 +289,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
-              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
+              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien • <span className="text-xs text-gray-500">v{APP_VERSION}</span></p>
             </div>
             
             <div className="flex gap-4">
