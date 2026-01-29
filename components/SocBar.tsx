@@ -5,9 +5,10 @@ interface SocBarProps {
   label: string;
   soc: number; // 0-100
   capacity: number; // in kWh
+  direction?: 'charging' | 'discharging' | 'idle'; // optional indicator
 }
 
-export default function SocBar({ label, soc, capacity }: SocBarProps) {
+export default function SocBar({ label, soc, capacity, direction = 'idle' }: SocBarProps) {
   const pct = Math.max(0, Math.min(100, Number(soc)));
   const energyStored = (pct / 100) * capacity;
   const color = pct > 66 ? 'bg-green-500' : pct > 33 ? 'bg-yellow-500' : 'bg-red-500';
@@ -15,10 +16,35 @@ export default function SocBar({ label, soc, capacity }: SocBarProps) {
   const bgColor = pct > 66 ? 'bg-green-100' : pct > 33 ? 'bg-yellow-100' : 'bg-red-100';
   const borderColor = pct > 66 ? 'border-green-400' : pct > 33 ? 'border-yellow-400' : 'border-red-400';
 
+  // Direction indicator
+  let directionIcon = '';
+  let directionText = '';
+  let directionColor = 'text-gray-500';
+  
+  if (direction === 'charging') {
+    directionIcon = '⚡';
+    directionText = 'Lädt';
+    directionColor = 'text-green-600';
+  } else if (direction === 'discharging') {
+    directionIcon = '⚡';
+    directionText = 'Entlädt';
+    directionColor = 'text-orange-600';
+  } else {
+    directionIcon = '⏸';
+    directionText = 'Inaktiv';
+    directionColor = 'text-gray-500';
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2">
-        <span className="font-semibold text-gray-800">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-800">{label}</span>
+          <span className={`text-xs ${directionColor} flex items-center gap-1`}>
+            <span>{directionIcon}</span>
+            <span>{directionText}</span>
+          </span>
+        </div>
         <span className={`font-bold ${textColor}`}>{pct.toFixed(0)}%</span>
       </div>
       <div className={`w-full ${bgColor} rounded-lg h-8 overflow-hidden border-2 ${borderColor} shadow-sm`}>

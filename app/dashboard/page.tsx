@@ -7,6 +7,11 @@ import ConsumptionChart from '../../components/ConsumptionChart';
 import AnnualConsumptionStats from '../../components/AnnualConsumptionStats';
 import SocBar from '../../components/SocBar';
 import SankeyChart from '../../components/SankeyChart';
+import DataContextBanner from '../../components/DataContextBanner';
+import PlausibilityWarnings from '../../components/PlausibilityWarnings';
+import DebugPanel from '../../components/DebugPanel';
+import InfoTooltip from '../../components/InfoTooltip';
+import IssueReportButton from '../../components/IssueReportButton';
 import { OptimizationStrategyType, getAllStrategies, getStrategy } from '../../lib/optimizationStrategies';
 import { LiveModeState, LiveModeSpeed, DEFAULT_LIVE_MODE_STATE, getUpdateInterval, advanceTime } from '../../lib/liveMode';
 
@@ -237,6 +242,30 @@ export default function Dashboard() {
   const battery2Soc = calculateHourlySoc(selectedDate, selectedHour, 20);
   const avgSoc = (battery1Soc + battery2Soc) / 2;
 
+  // Calculate battery direction (charging/discharging/idle)
+  const getBatteryDirection = (netFlow: number, soc: number): 'charging' | 'discharging' | 'idle' => {
+    const config = strategyConfig;
+    const isNight = selectedHour >= config.nightStart || selectedHour < config.nightEnd;
+    
+    if (netFlow > 0.05 && soc < config.maxSoc) {
+      return 'charging'; // PV surplus and battery not full
+    } else if (netFlow < -0.05) {
+      // Check if battery should be used based on strategy
+      const shouldUseBattery = isNight 
+        ? soc > config.targetNightSoc 
+        : soc > config.minSoc;
+      
+      if (shouldUseBattery) {
+        return 'discharging'; // Deficit and battery is being used
+      }
+    }
+    return 'idle'; // Battery not charging or discharging
+  };
+
+  const netFlowPerWR = netFlow / 2; // Half of total net flow per inverter
+  const battery1Direction = getBatteryDirection(netFlowPerWR, battery1Soc);
+  const battery2Direction = getBatteryDirection(netFlowPerWR, battery2Soc);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="sticky top-0 z-50 bg-white shadow-lg">
@@ -374,6 +403,36 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
+        {/* Data Context Banner */}
+        <DataContextBanner selectedDate={selectedDate} selectedHour={selectedHour} />
+
+        {/* Plausibility Warnings */}
+        <PlausibilityWarnings
+          pvProduction={pvProduction}
+          totalConsumption={totalConsumption}
+          battery1Soc={battery1Soc}
+          battery2Soc={battery2Soc}
+          battery1Capacity={building.batteries[0].capacityKwh}
+          battery2Capacity={building.batteries[1].capacityKwh}
+          selectedHour={selectedHour}
+        />
+
+        {/* Debug Panel */}
+        <DebugPanel
+          pvProduction={pvProduction}
+          houseConsumption={houseConsumption}
+          commonConsumption={commonConsumption}
+          totalConsumption={totalConsumption}
+          netFlow={netFlow}
+          battery1Soc={battery1Soc}
+          battery2Soc={battery2Soc}
+          avgSoc={avgSoc}
+          battery1Capacity={building.batteries[0].capacityKwh}
+          battery2Capacity={building.batteries[1].capacityKwh}
+          selectedHour={selectedHour}
+          selectedDate={selectedDate}
+        />
+
         {/* Strategy Info Banner */}
         {aiOptimizationEnabled && (
           <div className="mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 rounded-lg p-3 shadow">
@@ -406,12 +465,18 @@ export default function Dashboard() {
         )}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
-            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">☀️ PV</h3>
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+              ☀️ PV
+              <InfoTooltip text="Aktuelle Photovoltaik-Produktion basierend auf Tageszeit, Monat, Wetter und installierter Leistung (66.88 kWp). Berechnet mit realistischen Sonnenauf-/untergangszeiten und Bewölkungsfaktoren." />
+            </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 mt-1 md:mt-2">{pvProduction.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
           </div>
 
           <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-red-400">
-            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">🏠 VERBRAUCH</h3>
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+              🏠 VERBRAUCH
+              <InfoTooltip text="Gesamtverbrauch aller Wohnungen plus Gemeinschaftsbereiche (Pool, Heizung, Garage, Boiler). Variiert nach Tageszeit, Wochentag und Jahreszeit basierend auf realistischen Lastprofilen." />
+            </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{totalConsumption.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
             <div className="mt-1 md:mt-2 text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-0.5">
               <div className="flex justify-between">
@@ -438,12 +503,18 @@ export default function Dashboard() {
           </div>
 
           <div className={`rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
-            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">{netFlow > 0 ? '📈 +' : '📉 -'}</h3>
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+              {netFlow > 0 ? '📈 +' : '📉 -'}
+              <InfoTooltip text={netFlow > 0 ? 'PV-Überschuss: Energie, die in Batterien geladen oder ins Netz eingespeist wird. Berechnung: PV-Produktion minus Verbrauch.' : 'Energie-Defizit: Fehlende Energie wird aus Batterien oder vom Netz bezogen. Berechnung: Verbrauch minus PV-Produktion.'} />
+            </h3>
             <p className={`text-xl sm:text-2xl md:text-3xl font-bold mt-1 md:mt-2 ${netFlow > 0 ? 'text-green-600' : 'text-gray-600'}`}>{Math.abs(netFlow).toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-purple-400">
-            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600">🔋 ∅</h3>
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+              🔋 ∅
+              <InfoTooltip text="Durchschnittlicher State of Charge (SOC) beider Batterien. Berechnet basierend auf akkumuliertem Energiefluss seit Vortag 00:00 Uhr. 100% = voll geladen, 0% = leer." />
+            </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-600 mt-1 md:mt-2">{avgSoc.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
           </div>
         </div>
@@ -673,8 +744,18 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow p-2 md:p-4">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">🔋 Batteriestand</h2>
             <div className="space-y-2 md:space-y-4">
-              <SocBar label="Wechselrichter 1" soc={battery1Soc} capacity={building.batteries[0].capacityKwh} />
-              <SocBar label="Wechselrichter 2" soc={battery2Soc} capacity={building.batteries[1].capacityKwh} />
+              <SocBar 
+                label="Wechselrichter 1" 
+                soc={battery1Soc} 
+                capacity={building.batteries[0].capacityKwh}
+                direction={battery1Direction}
+              />
+              <SocBar 
+                label="Wechselrichter 2" 
+                soc={battery2Soc} 
+                capacity={building.batteries[1].capacityKwh}
+                direction={battery2Direction}
+              />
             </div>
           </div>
         </div>
