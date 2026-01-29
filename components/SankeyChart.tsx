@@ -6,16 +6,21 @@ type SankeyProps = {
   data?: any;
 };
 
+// Define consistent breakpoint for mobile
+const MOBILE_BREAKPOINT = 768;
+
 export default function SankeyChart({ width = 800, height = 400, data }: SankeyProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width, height });
 
-  // Update dimensions on resize
+  // Update dimensions on resize with debouncing
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const updateDimensions = () => {
       if (ref.current) {
         const containerWidth = ref.current.offsetWidth;
-        const isMobile = window.innerWidth < 768;
+        const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
         setDimensions({
           width: containerWidth || width,
           height: isMobile ? Math.min(250, height) : height
@@ -23,9 +28,18 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
       }
     };
 
+    const debouncedUpdate = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(updateDimensions, 150);
+    };
+
     updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    window.addEventListener('resize', debouncedUpdate);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', debouncedUpdate);
+    };
   }, [width, height]);
 
   useEffect(() => {
@@ -67,7 +81,7 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           ],
         };
 
-        const isMobile = actualWidth < 600;
+        const isMobile = actualWidth < MOBILE_BREAKPOINT;
         const leftMargin = isMobile ? 80 : 130;
         const rightMargin = isMobile ? 60 : 100;
         const nodeWidth = isMobile ? 8 : 12;
@@ -134,8 +148,9 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           .attr("fill", "#1f2937")
           .text((d: any) => d.name || d.id);
 
-        // Add link labels showing flow values (hide on very small screens)
-        if (!isMobile || actualWidth > 400) {
+        // Add link labels showing flow values (simplified condition for clarity)
+        // Show labels on screens wider than mobile breakpoint
+        if (actualWidth >= MOBILE_BREAKPOINT) {
           svg.append("g")
             .selectAll("text")
             .data(linksOut.filter((d: any) => d.value > 0.5)) // Only show labels for significant flows
@@ -152,7 +167,7 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
               return (sourceY + targetY) / 2;
             })
             .attr("text-anchor", "middle")
-            .attr("font-size", isMobile ? "8px" : "10px")
+            .attr("font-size", "10px")
             .attr("font-weight", "600")
             .attr("fill", "#374151")
             .attr("stroke", "#ffffff")

@@ -50,9 +50,4 @@
       font-size: clamp(0.75rem, 2vw, 1rem);
     }
   }
-
-  /* Better scrolling on mobile */
-  .overflow-touch {
-    -webkit-overflow-scrolling: touch;
-  }
 }
