@@ -69,7 +69,13 @@ EMAIL_FALLBACK_TO=tinur5@hotmail.com
 
 2. Bearbeite `.env.local` und füge deine Credentials ein
 
-3. Starte den Development-Server:
+3. (Optional) Teste die Email-Konfiguration:
+   ```bash
+   npm run test:email
+   ```
+   Dies sendet eine Test-Email und überprüft ob die Konfiguration korrekt ist.
+
+4. Starte den Development-Server:
    ```bash
    npm run dev
    ```
