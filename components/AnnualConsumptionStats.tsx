@@ -56,7 +56,10 @@ export default function AnnualConsumptionStats({
 
   return (
     <div className="bg-white rounded-lg shadow p-4 space-y-4">
-      <h3 className="text-lg font-bold text-gray-800">📊 Jahresverbrauch-Statistik</h3>
+      <div>
+        <h3 className="text-lg font-bold text-gray-800">📊 Jahresverbrauch-Statistik</h3>
+        <p className="text-xs text-gray-600 mt-1">Simulierte Jahreswerte basierend auf Lastprofilen, Tageszeit- und Saisonfaktoren</p>
+      </div>
 
       <div className="space-y-3">
         {stats.map((stat, idx) => (

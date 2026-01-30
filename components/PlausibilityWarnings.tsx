@@ -85,10 +85,13 @@ export default function PlausibilityWarnings({
     warnings.push(`Energiebilanz (${netFlow.toFixed(1)} kW) ist unrealistisch hoch. Überprüfen Sie PV-Produktion und Verbrauch.`);
   }
 
-  // Check 9: Identical battery SOC warning (should have small variation)
+  // Check 9: Identical battery SOC warning - only warn if truly unusual (very similar for extended period)
+  // Since we can't track history, we'll make this threshold more strict
   const socDifference = Math.abs(battery1Soc - battery2Soc);
-  if (socDifference < 0.5 && battery1Soc > 10 && battery2Soc > 10) {
-    info.push(`Beide Batterien haben nahezu identischen SOC (${battery1Soc.toFixed(1)}% vs ${battery2Soc.toFixed(1)}%). Dies ist ungewöhnlich, aber möglich.`);
+  if (socDifference < 0.1 && battery1Soc > 15 && battery2Soc > 15 && battery1Soc < 95 && battery2Soc < 95) {
+    // Only show this as info if SOC is extremely close (< 0.1%) in the middle range
+    // This is rare but can happen with symmetric load distribution
+    info.push(`Beide Batterien haben nahezu identischen SOC (${battery1Soc.toFixed(1)}% vs ${battery2Soc.toFixed(1)}%). Dies kann bei symmetrischer Lastverteilung auftreten.`);
   }
 
   // Check 10: Battery capacity consistency
