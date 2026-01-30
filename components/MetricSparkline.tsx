@@ -2,6 +2,15 @@
 
 import { useMemo } from 'react';
 
+/**
+ * MetricSparkline component displays a small inline chart showing 24-hour data progression
+ * with a marker indicating the current time position.
+ * 
+ * @param data - Array of 24 hourly values representing the metric throughout the day
+ * @param currentHour - The current hour (0-23) to highlight with a marker
+ * @param color - Color scheme for the sparkline ('orange', 'red', 'purple', 'green')
+ * @param showCurrentMarker - Whether to show the current time marker (default: true)
+ */
 interface MetricSparklineProps {
   data: number[]; // 24 hour values
   currentHour: number;
@@ -29,7 +38,8 @@ export default function MetricSparkline({
     
     // Calculate points
     const pts = data.map((value, index) => {
-      const x = (index / (data.length - 1)) * width;
+      // Handle single data point case
+      const x = data.length === 1 ? width / 2 : (index / (data.length - 1)) * width;
       const y = height - padding - ((value - min) / range) * (height - 2 * padding);
       return { x, y };
     });
@@ -42,7 +52,9 @@ export default function MetricSparkline({
     return { path: pathData, points: pts, maxValue: max, minValue: min };
   }, [data]);
   
-  const currentPoint = points[currentHour];
+  // Ensure currentHour is within valid bounds
+  const safeCurrentHour = Math.max(0, Math.min(currentHour, points.length - 1));
+  const currentPoint = points[safeCurrentHour];
   
   // Color mapping
   const colorMap: Record<string, { stroke: string; fill: string; marker: string }> = {
@@ -56,7 +68,15 @@ export default function MetricSparkline({
   
   return (
     <div className="w-full h-5 opacity-70">
-      <svg viewBox="0 0 100 20" className="w-full h-full" preserveAspectRatio="none">
+      <svg 
+        viewBox="0 0 100 20" 
+        className="w-full h-full" 
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`24-hour ${color} metric progression chart with current time at hour ${currentHour}`}
+      >
+        <title>{`24-hour metric progression with marker at hour ${currentHour}`}</title>
+        
         {/* Fill area under the line */}
         <path
           d={`${path} L 100 20 L 0 20 Z`}

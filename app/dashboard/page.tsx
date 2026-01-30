@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Building, Tenant } from '../../lib/models';
 import { calculateTenantConsumption, calculatePVProduction } from '../../lib/simulation';
 import ConsumptionChart from '../../components/ConsumptionChart';
@@ -286,8 +286,8 @@ export default function Dashboard() {
   const battery1Direction = getBatteryDirection(netFlowPerWR, battery1Soc);
   const battery2Direction = getBatteryDirection(netFlowPerWR, battery2Soc);
 
-  // Generate 24-hour data for sparklines
-  const generate24HourData = () => {
+  // Generate 24-hour data for sparklines - memoized to avoid expensive recalculation on every render
+  const { pvData, consumptionData, socData } = useMemo(() => {
     const pvData: number[] = [];
     const consumptionData: number[] = [];
     const socData: number[] = [];
@@ -309,9 +309,7 @@ export default function Dashboard() {
     }
     
     return { pvData, consumptionData, socData };
-  };
-  
-  const { pvData, consumptionData, socData } = generate24HourData();
+  }, [building.pvPeakKw, building.efficiency, month, dayOfWeek, selectedDate, tenants]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
