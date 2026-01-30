@@ -33,8 +33,8 @@ export default function Dashboard() {
   });
 
   const [tenants] = useState<Tenant[]>([
-    { id: 1, name: 'Graf', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'VW ID4' },
-    { id: 2, name: 'Wetli', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'Tesla' },
+    { id: 1, name: 'Graf', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'VW ID4 77kWh', hasFireplace: true },
+    { id: 2, name: 'Wetli', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'Tesla M3 LR' },
     { id: 3, name: 'Bürzle', consumption: 4500, householdSize: 2, livingAreaSqm: 200, ageGroup: 'Pensionierte', vehicleType: 'Porsche Hybrid' },
   ]);
 
@@ -323,7 +323,7 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => setIsControlBarExpanded(!isControlBarExpanded)}
-              className="md:hidden p-2 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
+              className="p-2 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
               aria-label={isControlBarExpanded ? "Steuerelemente einklappen" : "Steuerelemente ausklappen"}
             >
               {isControlBarExpanded ? (
@@ -343,10 +343,6 @@ export default function Dashboard() {
           {/* Collapsible controls section */}
           <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block px-4 pb-4`}>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="hidden md:block">
-                <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
-                <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
-              </div>
             
             <div className="flex gap-4">
               <div>
@@ -613,69 +609,69 @@ export default function Dashboard() {
         {/* Detaillierte Verbrauchsübersicht */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-6">
           <div className="bg-white rounded-lg shadow p-2 md:p-3">
-            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Graf (Tesla)</h3>
+            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Graf (VW ID4)</h3>
             <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
                 <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.7).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between">
-                <span>🚗 Tesla laden:</span>
+                <span>🚗 VW ID4 laden:</span>
                 <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.3).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1">
                 <span className="font-bold">Total:</span>
                 <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
-              <div className="text-[9px] text-gray-500 mt-1">4 Personen, 160m²</div>
+              <div className="text-[9px] text-gray-500 mt-1">4 Personen, 140m² • 🔥 Kachelofen</div>
             </div>
           </div>
           
           <div className="bg-white rounded-lg shadow p-2 md:p-3">
-            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👴👵 Wetli (VW)</h3>
+            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Wetli (Tesla M3)</h3>
             <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.8).toFixed(2)} kW</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.65).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between">
-                <span>🚗 VW laden:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.2).toFixed(2)} kW</span>
+                <span>🚗 Tesla laden:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.35).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1">
                 <span className="font-bold">Total:</span>
                 <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
-              <div className="text-[9px] text-gray-500 mt-1">2 Personen, 200m²</div>
+              <div className="text-[9px] text-gray-500 mt-1">4 Personen, 140m² • Längster Arbeitsweg</div>
             </div>
           </div>
           
           <div className="bg-white rounded-lg shadow p-2 md:p-3">
-            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Bürzle (E-Bike)</h3>
+            <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👴👵 Bürzle (Porsche)</h3>
             <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.98).toFixed(2)} kW</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.8).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between">
-                <span>🚴 E-Bike laden:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.02).toFixed(2)} kW</span>
+                <span>🚗 Porsche laden:</span>
+                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.2).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1">
                 <span className="font-bold">Total:</span>
                 <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
-              <div className="text-[9px] text-gray-500 mt-1">3 Personen, 140m²</div>
+              <div className="text-[9px] text-gray-500 mt-1">2 Personen, 200m²</div>
             </div>
           </div>
         </div>
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
-          <div className="lg:col-span-2 bg-white rounded-lg shadow p-2 md:p-4">
+          <div className="lg:col-span-2 bg-white rounded-lg shadow p-2 md:p-4 overflow-hidden">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">⚡ Energiefluss</h2>
-            <div className="w-full">
-              <div className="w-full" style={{ height: 'clamp(250px, 40vw, 320px)' }}>
+            <div className="w-full overflow-hidden">
+              <div className="w-full overflow-hidden" style={{ height: 'clamp(250px, 40vw, 320px)' }}>
               <SankeyChart 
                 data={{
                   nodes: [
