@@ -48,6 +48,9 @@ export default function Dashboard() {
   const [liveMode, setLiveMode] = useState<LiveModeState>(DEFAULT_LIVE_MODE_STATE);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Control bar collapse state for mobile - starts expanded for better UX
+  const [isControlBarExpanded, setIsControlBarExpanded] = useState<boolean>(true);
+  
   // Live mode effect
   useEffect(() => {
     if (liveMode.isActive && !liveMode.isPaused) {
@@ -290,7 +293,34 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
               <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien • <span className="text-xs text-gray-500">v{APP_VERSION}</span></p>
+
             </div>
+            <button
+              onClick={() => setIsControlBarExpanded(!isControlBarExpanded)}
+              className="md:hidden p-2 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
+              aria-label={isControlBarExpanded ? "Steuerelemente einklappen" : "Steuerelemente ausklappen"}
+            >
+              {isControlBarExpanded ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <title>Einklappen</title>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <title>Ausklappen</title>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Collapsible controls section */}
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block px-4 pb-4`}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="hidden md:block">
+                <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
+                <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
+              </div>
             
             <div className="flex gap-4">
               <div>
@@ -319,9 +349,10 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          </div>
           
           {/* Optimization and Live Mode Controls */}
-          <div className="border-t border-gray-200 pt-3 mt-3">
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block border-t border-gray-200 pt-3 px-4 pb-4`}>
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Strategy Selection */}
               <div className="flex-1">
@@ -608,8 +639,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-2 md:p-4">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">⚡ Energiefluss</h2>
-            <div className="w-full overflow-x-auto">
-              <div className="min-w-[600px] h-64 md:h-80">
+            <div className="w-full">
+              <div className="w-full" style={{ height: 'clamp(250px, 40vw, 320px)' }}>
               <SankeyChart 
                 data={{
                   nodes: [
@@ -761,9 +792,7 @@ export default function Dashboard() {
                     
                     return links;
                   })()
-                }} 
-                width={750} 
-                height={280} 
+                }}
               />
               </div>
             </div>

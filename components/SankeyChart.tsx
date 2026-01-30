@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 
 type SankeyProps = {
   width?: number;
@@ -6,8 +6,41 @@ type SankeyProps = {
   data?: any;
 };
 
+// Define consistent breakpoint for mobile
+const MOBILE_BREAKPOINT = 768;
+
 export default function SankeyChart({ width = 800, height = 400, data }: SankeyProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const [dimensions, setDimensions] = useState({ width, height });
+
+  // Update dimensions on resize with debouncing
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const updateDimensions = () => {
+      if (ref.current) {
+        const containerWidth = ref.current.offsetWidth;
+        const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+        setDimensions({
+          width: containerWidth || width,
+          height: isMobile ? Math.min(250, height) : height
+        });
+      }
+    };
+
+    const debouncedUpdate = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(updateDimensions, 150);
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', debouncedUpdate);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', debouncedUpdate);
+    };
+  }, [width, height]);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,12 +55,19 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
         const container = ref.current!;
         container.innerHTML = "";
 
+        const actualWidth = dimensions.width;
+        const actualHeight = dimensions.height;
+
         const svg = d3.select(container)
           .append("svg")
-          .attr("width", width)
-          .attr("height", height)
+          .attr("width", actualWidth)
+          .attr("height", actualHeight)
+          .attr("viewBox", `0 0 ${actualWidth} ${actualHeight}`)
+          .attr("preserveAspectRatio", "xMidYMid meet")
           .style("background", "#f9fafb")
-          .style("border-radius", "8px");
+          .style("border-radius", "8px")
+          .style("width", "100%")
+          .style("height", "100%");
 
         const graph = data ?? {
           nodes: [
@@ -41,10 +81,17 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           ],
         };
 
+        const isMobile = actualWidth < MOBILE_BREAKPOINT;
+        const leftMargin = isMobile ? 80 : 130;
+        const rightMargin = isMobile ? 60 : 100;
+        const nodeWidth = isMobile ? 8 : 12;
+        const nodePadding = isMobile ? 15 : 25;
+        const fontSize = isMobile ? 10 : 13;
+
         const sankeyGen = d3sankey.sankey()
-          .nodeWidth(12)
-          .nodePadding(25)
-          .extent([[130, 15], [width - 100, height - 15]]);
+          .nodeWidth(nodeWidth)
+          .nodePadding(nodePadding)
+          .extent([[leftMargin, 15], [actualWidth - rightMargin, actualHeight - 15]]);
 
         const { nodes: nodesOut, links: linksOut } = sankeyGen({
           nodes: graph.nodes.map((n: any) => ({ ...n })),
@@ -92,39 +139,42 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
           .attr("rx", 3);
 
         node.append("text")
-          .attr("x", (d: any) => (d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6))
+          .attr("x", (d: any) => (d.x0 < actualWidth / 2 ? d.x1 + 6 : d.x0 - 6))
           .attr("y", (d: any) => (d.y1 + d.y0) / 2)
           .attr("dy", "0.35em")
-          .attr("text-anchor", (d: any) => d.x0 < width / 2 ? "start" : "end")
+          .attr("text-anchor", (d: any) => d.x0 < actualWidth / 2 ? "start" : "end")
           .attr("font-weight", "600")
-          .attr("font-size", "13px")
+          .attr("font-size", `${fontSize}px`)
           .attr("fill", "#1f2937")
           .text((d: any) => d.name || d.id);
 
-        // Add link labels showing flow values
-        svg.append("g")
-          .selectAll("text")
-          .data(linksOut.filter((d: any) => d.value > 0.5)) // Only show labels for significant flows
-          .enter()
-          .append("text")
-          .attr("x", (d: any) => {
-            const sourceX = d.source.x1;
-            const targetX = d.target.x0;
-            return (sourceX + targetX) / 2;
-          })
-          .attr("y", (d: any) => {
-            const sourceY = (d.source.y0 + d.source.y1) / 2;
-            const targetY = (d.target.y0 + d.target.y1) / 2;
-            return (sourceY + targetY) / 2;
-          })
-          .attr("text-anchor", "middle")
-          .attr("font-size", "10px")
-          .attr("font-weight", "600")
-          .attr("fill", "#374151")
-          .attr("stroke", "#ffffff")
-          .attr("stroke-width", "3")
-          .attr("paint-order", "stroke")
-          .text((d: any) => `${(d.value / 10).toFixed(1)} kW`);
+        // Add link labels showing flow values (simplified condition for clarity)
+        // Show labels on screens wider than mobile breakpoint
+        if (actualWidth >= MOBILE_BREAKPOINT) {
+          svg.append("g")
+            .selectAll("text")
+            .data(linksOut.filter((d: any) => d.value > 0.5)) // Only show labels for significant flows
+            .enter()
+            .append("text")
+            .attr("x", (d: any) => {
+              const sourceX = d.source.x1;
+              const targetX = d.target.x0;
+              return (sourceX + targetX) / 2;
+            })
+            .attr("y", (d: any) => {
+              const sourceY = (d.source.y0 + d.source.y1) / 2;
+              const targetY = (d.target.y0 + d.target.y1) / 2;
+              return (sourceY + targetY) / 2;
+            })
+            .attr("text-anchor", "middle")
+            .attr("font-size", "10px")
+            .attr("font-weight", "600")
+            .attr("fill", "#374151")
+            .attr("stroke", "#ffffff")
+            .attr("stroke-width", "3")
+            .attr("paint-order", "stroke")
+            .text((d: any) => `${(d.value / 10).toFixed(1)} kW`);
+        }
 
       } catch (e) {
         console.error("Sankey load error:", e);
@@ -132,9 +182,9 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
     })();
 
     return () => { cancelled = true; };
-  }, [width, height, data]);
+  }, [dimensions.width, dimensions.height, data]);
 
   return (
-    <div style={{ width: "100%", height }} ref={ref} className="flex items-center justify-center" />
+    <div style={{ width: "100%", height: dimensions.height }} ref={ref} className="flex items-center justify-center overflow-x-auto" />
   );
 }
