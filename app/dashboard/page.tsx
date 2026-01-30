@@ -12,6 +12,7 @@ import PlausibilityWarnings from '../../components/PlausibilityWarnings';
 import DebugPanel from '../../components/DebugPanel';
 import InfoTooltip from '../../components/InfoTooltip';
 import IssueReportButton from '../../components/IssueReportButton';
+import MetricSparkline from '../../components/MetricSparkline';
 import { OptimizationStrategyType, getAllStrategies, getStrategy } from '../../lib/optimizationStrategies';
 import { LiveModeState, LiveModeSpeed, DEFAULT_LIVE_MODE_STATE, getUpdateInterval, advanceTime } from '../../lib/liveMode';
 import { APP_VERSION } from '../../lib/version';
@@ -33,7 +34,7 @@ export default function Dashboard() {
 
   const [tenants] = useState<Tenant[]>([
     { id: 1, name: 'Graf', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'VW ID4' },
-    { id: 2, name: 'Wetly', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'Tesla' },
+    { id: 2, name: 'Wetli', consumption: 5200, householdSize: 4, livingAreaSqm: 140, ageGroup: 'Familie', vehicleType: 'Tesla' },
     { id: 3, name: 'Bürzle', consumption: 4500, householdSize: 2, livingAreaSqm: 200, ageGroup: 'Pensionierte', vehicleType: 'Porsche Hybrid' },
   ]);
 
@@ -285,6 +286,33 @@ export default function Dashboard() {
   const battery1Direction = getBatteryDirection(netFlowPerWR, battery1Soc);
   const battery2Direction = getBatteryDirection(netFlowPerWR, battery2Soc);
 
+  // Generate 24-hour data for sparklines
+  const generate24HourData = () => {
+    const pvData: number[] = [];
+    const consumptionData: number[] = [];
+    const socData: number[] = [];
+    
+    for (let hour = 0; hour < 24; hour++) {
+      // PV production for each hour
+      const pv = calculatePVProduction(building.pvPeakKw, hour, month, building.efficiency);
+      pvData.push(pv);
+      
+      // Total consumption for each hour
+      const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, hour, dayOfWeek, month), 0);
+      const common = Object.values(getCommonAreaConsumption(hour, month)).reduce((a: number, b: any) => a + b, 0);
+      consumptionData.push(house + common);
+      
+      // Average battery SOC for each hour
+      const bat1 = calculateHourlySoc(selectedDate, hour, 20, 1);
+      const bat2 = calculateHourlySoc(selectedDate, hour, 20, 2);
+      socData.push((bat1 + bat2) / 2);
+    }
+    
+    return { pvData, consumptionData, socData };
+  };
+  
+  const { pvData, consumptionData, socData } = generate24HourData();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="sticky top-0 z-50 bg-white shadow-lg">
@@ -520,6 +548,9 @@ export default function Dashboard() {
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
               <span className="font-semibold">Momentanleistung</span> • {(pvProduction * 1).toFixed(1)} kWh/h
             </div>
+            <div className="mt-2">
+              <MetricSparkline data={pvData} currentHour={selectedHour} color="orange" />
+            </div>
           </div>
 
           <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-red-400">
@@ -553,6 +584,9 @@ export default function Dashboard() {
                 <span className="font-semibold">{commonAreaData.boiler.toFixed(1)}</span>
               </div>
             </div>
+            <div className="mt-2">
+              <MetricSparkline data={consumptionData} currentHour={selectedHour} color="red" />
+            </div>
           </div>
 
           <div className={`rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
@@ -571,6 +605,9 @@ export default function Dashboard() {
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-600 mt-1 md:mt-2">{avgSoc.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
               <span className="font-semibold">{totalBatteryEnergy.toFixed(1)} kWh</span> gespeichert von {building.capacity} kWh
+            </div>
+            <div className="mt-2">
+              <MetricSparkline data={socData} currentHour={selectedHour} color="purple" />
             </div>
           </div>
         </div>
