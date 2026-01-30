@@ -26,8 +26,19 @@
    - Framework: Next.js (auto-erkannt)
    - Build Command: `npm run build` ✓
    - Start Command: `next start` ✓
-6. Klicke "Deploy"
-7. Warten Sie 2-5 Minuten → App ist live! 🎉
+6. **Optional: Environment Variables konfigurieren** (für Issue-Reporting):
+   - Klicke auf "Environment Variables"
+   - Für GitHub-Integration:
+     - `GITHUB_TOKEN`: Dein GitHub Personal Access Token
+     - `GITHUB_REPO`: `tinur5/GaengleSimulator`
+   - Für Email-Fallback (wenn kein GitHub-Token):
+     - `SMTP_HOST`: z.B. `smtp.gmail.com`
+     - `SMTP_PORT`: z.B. `587`
+     - `SMTP_USER`: Deine Email-Adresse
+     - `SMTP_PASSWORD`: Dein Email App-Passwort
+     - `EMAIL_FALLBACK_TO`: `tinur5@hotmail.com`
+7. Klicke "Deploy"
+8. Warten Sie 2-5 Minuten → App ist live! 🎉
 
 ### Schritt 3: Link teilen
 Nach dem Deploy bekommst du einen Link wie:
@@ -106,3 +117,9 @@ A: Ja, nach dem ersten Laden funktioniert sie auch ohne Internet (Browser-Cache)
 
 **F: Wie sichert man die Änderungen ab?**
 A: Alles ist in Git versioniert. Mit `git push` ist alles auf GitHub.
+
+**F: Wie funktioniert das Issue-Reporting?**
+A: Es gibt zwei Optionen:
+- **Mit GitHub-Integration**: Issues werden direkt auf GitHub erstellt (erfordert `GITHUB_TOKEN`)
+- **Mit Email-Fallback**: Issues werden als Email gesendet (erfordert SMTP-Konfiguration)
+Wenn keines konfiguriert ist, zeigt die App eine entsprechende Fehlermeldung.

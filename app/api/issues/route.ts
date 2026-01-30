@@ -1,5 +1,6 @@
 // app/api/issues/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { sendIssueEmail } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,11 +19,42 @@ export async function POST(request: NextRequest) {
     const githubRepo = process.env.GITHUB_REPO || 'tinur5/GaengleSimulator';
 
     if (!githubToken) {
-      console.error('GITHUB_TOKEN ist nicht konfiguriert');
-      return NextResponse.json(
-        { error: 'GitHub-Integration ist nicht konfiguriert' },
-        { status: 500 }
-      );
+      console.log('GITHUB_TOKEN ist nicht konfiguriert, verwende Email-Fallback');
+      
+      // Try to send via email as fallback
+      const emailFallbackTo = process.env.EMAIL_FALLBACK_TO;
+      const smtpUser = process.env.SMTP_USER;
+      
+      if (!emailFallbackTo || !smtpUser) {
+        console.error('Email-Fallback ist nicht konfiguriert');
+        return NextResponse.json(
+          { error: 'GitHub-Integration und Email-Fallback sind nicht konfiguriert' },
+          { status: 500 }
+        );
+      }
+
+      // Send issue report via email
+      const emailSent = await sendIssueEmail({
+        title,
+        description,
+        userAgent,
+        timestamp,
+        to: emailFallbackTo,
+        from: smtpUser,
+      });
+
+      if (emailSent) {
+        return NextResponse.json({
+          success: true,
+          message: 'Issue wurde per Email gesendet',
+          fallbackUsed: true,
+        });
+      } else {
+        return NextResponse.json(
+          { error: 'Fehler beim Senden der Email' },
+          { status: 500 }
+        );
+      }
     }
 
     // Create issue body with metadata
