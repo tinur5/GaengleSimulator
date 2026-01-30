@@ -47,6 +47,9 @@ export default function Dashboard() {
   const [liveMode, setLiveMode] = useState<LiveModeState>(DEFAULT_LIVE_MODE_STATE);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Control bar collapse state for mobile
+  const [isControlBarExpanded, setIsControlBarExpanded] = useState<boolean>(false);
+  
   // Live mode effect
   useEffect(() => {
     if (liveMode.isActive && !liveMode.isPaused) {
@@ -284,12 +287,37 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="sticky top-0 z-50 bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto p-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
-              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
+        <div className="max-w-7xl mx-auto">
+          {/* Mobile header with collapse toggle */}
+          <div className="p-4 flex items-center justify-between md:block">
+            <div className="flex-1 md:hidden">
+              <h1 className="text-xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
+              <p className="text-xs text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
             </div>
+            <button
+              onClick={() => setIsControlBarExpanded(!isControlBarExpanded)}
+              className="md:hidden p-2 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
+              aria-label="Toggle controls"
+            >
+              {isControlBarExpanded ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Collapsible controls section */}
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block px-4 pb-4`}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="hidden md:block">
+                <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
+                <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
+              </div>
             
             <div className="flex gap-4">
               <div>
@@ -318,9 +346,10 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          </div>
           
           {/* Optimization and Live Mode Controls */}
-          <div className="border-t border-gray-200 pt-3 mt-3">
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block border-t border-gray-200 pt-3 px-4 pb-4`}>
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Strategy Selection */}
               <div className="flex-1">
