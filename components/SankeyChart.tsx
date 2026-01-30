@@ -185,6 +185,6 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
   }, [dimensions.width, dimensions.height, data]);
 
   return (
-    <div style={{ width: "100%", height: dimensions.height }} ref={ref} className="flex items-center justify-center overflow-x-auto" />
+    <div style={{ width: "100%", height: dimensions.height, maxWidth: "100%", overflow: "hidden" }} ref={ref} className="flex items-center justify-center" />
   );
 }
