@@ -500,6 +500,9 @@ export default function Dashboard() {
           battery2Capacity={building.batteries[1].capacityKwh}
           selectedHour={selectedHour}
           selectedDate={selectedDate}
+          strategyConfig={strategyConfig}
+          inverterPowerKw={building.inverterPowerKw}
+          pvPeakKw={building.pvPeakKw}
         />
 
         {/* Strategy Info Banner */}
@@ -540,7 +543,7 @@ export default function Dashboard() {
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 mt-1 md:mt-2">{pvProduction.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
-              <span className="font-semibold">Momentanleistung</span> • {(pvProduction * 1).toFixed(1)} kWh/h
+              <span className="font-semibold">Momentanleistung</span>
             </div>
             <div className="mt-2">
               <MetricSparkline data={pvData} currentHour={selectedHour} color="orange" />
@@ -554,7 +557,7 @@ export default function Dashboard() {
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 mt-1 md:mt-2">{totalConsumption.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
-              <span className="font-semibold">Momentanleistung</span> • {(totalConsumption * 1).toFixed(1)} kWh/h
+              <span className="font-semibold">Momentanleistung</span>
             </div>
             <div className="mt-1 md:mt-2 text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-0.5">
               <div className="flex justify-between">
@@ -585,10 +588,13 @@ export default function Dashboard() {
 
           <div className={`rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
-              {netFlow > 0 ? '📈 +' : '📉 -'}
+              {netFlow > 0 ? '⚡ ÜBERSCHUSS' : '📊 DEFIZIT'}
               <InfoTooltip text={netFlow > 0 ? 'PV-Überschuss: Energie, die in Batterien geladen oder ins Netz eingespeist wird. Berechnung: PV-Produktion minus Verbrauch.' : 'Energie-Defizit: Fehlende Energie wird aus Batterien oder vom Netz bezogen. Berechnung: Verbrauch minus PV-Produktion.'} />
             </h3>
             <p className={`text-xl sm:text-2xl md:text-3xl font-bold mt-1 md:mt-2 ${netFlow > 0 ? 'text-green-600' : 'text-gray-600'}`}>{Math.abs(netFlow).toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
+            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+              <span className="font-semibold">{netFlow > 0 ? 'PV − Verbrauch' : 'Verbrauch − PV'}</span>
+            </div>
           </div>
 
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-purple-400">
@@ -613,15 +619,26 @@ export default function Dashboard() {
             <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.7).toFixed(2)} kW</span>
+                <span className="font-semibold">{calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between">
                 <span>🚗 VW ID4 laden:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month) * 0.3).toFixed(2)} kW</span>
+                <span className="font-semibold">{(() => {
+                  // EV charging: Realistic 11kW AC charging during evening hours (18-22)
+                  const isChargingWindow = selectedHour >= 18 && selectedHour <= 22;
+                  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                  return isChargingWindow && isWeekday ? '11.0' : '0.0';
+                })()} kW</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1">
                 <span className="font-bold">Total:</span>
-                <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
+                <span className="font-bold text-red-600">{(() => {
+                  const household = calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month);
+                  const isChargingWindow = selectedHour >= 18 && selectedHour <= 22;
+                  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                  const evCharging = isChargingWindow && isWeekday ? 11.0 : 0.0;
+                  return (household + evCharging).toFixed(2);
+                })()} kW</span>
               </div>
               <div className="text-[9px] text-gray-500 mt-1">4 Personen, 140m² • 🔥 Kachelofen</div>
             </div>
@@ -632,15 +649,26 @@ export default function Dashboard() {
             <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.65).toFixed(2)} kW</span>
+                <span className="font-semibold">{calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between">
                 <span>🚗 Tesla laden:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month) * 0.35).toFixed(2)} kW</span>
+                <span className="font-semibold">{(() => {
+                  // EV charging: Realistic 11kW AC charging, evening hours, longer commute means more frequent charging
+                  const isChargingWindow = selectedHour >= 19 && selectedHour <= 23;
+                  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                  return isChargingWindow && isWeekday ? '11.0' : '0.0';
+                })()} kW</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1">
                 <span className="font-bold">Total:</span>
-                <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
+                <span className="font-bold text-red-600">{(() => {
+                  const household = calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month);
+                  const isChargingWindow = selectedHour >= 19 && selectedHour <= 23;
+                  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                  const evCharging = isChargingWindow && isWeekday ? 11.0 : 0.0;
+                  return (household + evCharging).toFixed(2);
+                })()} kW</span>
               </div>
               <div className="text-[9px] text-gray-500 mt-1">4 Personen, 140m² • Längster Arbeitsweg</div>
             </div>
@@ -651,17 +679,74 @@ export default function Dashboard() {
             <div className="text-[10px] md:text-xs text-gray-600 space-y-0.5 md:space-y-1">
               <div className="flex justify-between">
                 <span>Haushalt:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.8).toFixed(2)} kW</span>
+                <span className="font-semibold">{calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
               </div>
               <div className="flex justify-between">
                 <span>🚗 Porsche laden:</span>
-                <span className="font-semibold">{(calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month) * 0.2).toFixed(2)} kW</span>
+                <span className="font-semibold">{(() => {
+                  // Hybrid: Less frequent charging, lighter usage (retired, shorter trips)
+                  const isChargingWindow = selectedHour >= 20 && selectedHour <= 22;
+                  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                  // Hybrid charges at lower power, less frequently
+                  return isChargingWindow && isWeekday && (selectedDate.getDate() % 3 === 0) ? '3.7' : '0.0';
+                })()} kW</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1">
                 <span className="font-bold">Total:</span>
-                <span className="font-bold text-red-600">{calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month).toFixed(2)} kW</span>
+                <span className="font-bold text-red-600">{(() => {
+                  const household = calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month);
+                  const isChargingWindow = selectedHour >= 20 && selectedHour <= 22;
+                  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                  const evCharging = isChargingWindow && isWeekday && (selectedDate.getDate() % 3 === 0) ? 3.7 : 0.0;
+                  return (household + evCharging).toFixed(2);
+                })()} kW</span>
               </div>
               <div className="text-[9px] text-gray-500 mt-1">2 Personen, 200m²</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Shared Loads Explanation */}
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-lg shadow p-3 mb-4 md:mb-6">
+          <div className="flex items-start gap-2">
+            <span className="text-xl">🏢</span>
+            <div className="flex-1">
+              <h3 className="font-bold text-sm text-amber-900 mb-2 flex items-center">
+                Gemeinschaftslasten (Shared Loads)
+                <InfoTooltip text="Diese Lasten werden vom Gebäude verursacht und sind nicht in den individuellen Wohnpartei-Totals enthalten. Sie machen den Großteil des Gesamtverbrauchs aus." />
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="bg-white rounded p-2">
+                  <div className="text-[10px] text-gray-600">Heizung</div>
+                  <div className="font-bold text-orange-600">{commonAreaData.heating.toFixed(1)} kW</div>
+                </div>
+                <div className="bg-white rounded p-2">
+                  <div className="text-[10px] text-gray-600">Pool</div>
+                  <div className="font-bold text-blue-600">{commonAreaData.pool.toFixed(1)} kW</div>
+                </div>
+                <div className="bg-white rounded p-2">
+                  <div className="text-[10px] text-gray-600">Garage</div>
+                  <div className="font-bold text-gray-600">{commonAreaData.garage.toFixed(1)} kW</div>
+                </div>
+                <div className="bg-white rounded p-2">
+                  <div className="text-[10px] text-gray-600">Boiler</div>
+                  <div className="font-bold text-red-600">{commonAreaData.boiler.toFixed(1)} kW</div>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-amber-900 bg-white/50 rounded p-2">
+                <div className="flex justify-between">
+                  <span>Wohnparteien Total:</span>
+                  <span className="font-semibold">{houseConsumption.toFixed(1)} kW</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Gemeinschaftslasten Total:</span>
+                  <span className="font-semibold">{commonConsumption.toFixed(1)} kW</span>
+                </div>
+                <div className="flex justify-between border-t border-amber-200 pt-1 mt-1">
+                  <span className="font-bold">Gesamtverbrauch:</span>
+                  <span className="font-bold text-red-600">{totalConsumption.toFixed(1)} kW</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -876,15 +961,17 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           <div className="bg-white rounded-lg shadow p-2 md:p-4">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">👥 Wohnparteien</h2>
+            <p className="text-[10px] md:text-xs text-gray-600 mb-2">Konfigurierte Jahresverbräuche (Eingabewerte):</p>
             <div className="space-y-1 md:space-y-2">
               {tenants.map((tenant) => (
                 <div key={tenant.id} className="flex justify-between p-1.5 md:p-2 bg-gray-50 rounded">
                   <div>
                     <p className="font-bold text-xs md:text-sm">{tenant.name}</p>
-                    <p className="text-[10px] md:text-xs text-gray-600">{tenant.livingAreaSqm}m²</p>
+                    <p className="text-[10px] md:text-xs text-gray-600">{tenant.livingAreaSqm}m² • {tenant.householdSize} Pers.</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs md:text-sm font-bold">{tenant.consumption} kWh/a</p>
+                    <p className="text-[10px] text-gray-500">Konfiguration</p>
                   </div>
                 </div>
               ))}
