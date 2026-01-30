@@ -341,7 +341,7 @@ export default function Dashboard() {
           </div>
 
           {/* Collapsible controls section */}
-          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block px-4 pb-4`}>
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} px-4 pb-4`}>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             
             <div className="flex gap-4">
@@ -374,7 +374,7 @@ export default function Dashboard() {
           </div>
           
           {/* Optimization and Live Mode Controls */}
-          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} md:block border-t border-gray-200 pt-3 px-4 pb-4`}>
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} border-t border-gray-200 pt-3 px-4 pb-4`}>
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Strategy Selection */}
               <div className="flex-1">
