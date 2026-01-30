@@ -10,6 +10,14 @@
   body {
     @apply bg-white text-gray-900;
   }
+
+  /* Improve touch targets for mobile */
+  @media (max-width: 768px) {
+    button, a, input, select {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }
 
 @layer components {
@@ -31,5 +39,15 @@
 
   .input-field {
     @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors;
+  }
+}
+
+/* Responsive utilities for better mobile experience */
+@layer utilities {
+  /* Prevent text from being too small on mobile */
+  @media (max-width: 640px) {
+    .responsive-text {
+      font-size: clamp(0.75rem, 2vw, 1rem);
+    }
   }
 }
