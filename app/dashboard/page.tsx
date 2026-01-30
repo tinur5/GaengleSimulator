@@ -500,6 +500,9 @@ export default function Dashboard() {
           battery2Capacity={building.batteries[1].capacityKwh}
           selectedHour={selectedHour}
           selectedDate={selectedDate}
+          strategyConfig={strategyConfig}
+          inverterPowerKw={building.inverterPowerKw}
+          pvPeakKw={building.pvPeakKw}
         />
 
         {/* Strategy Info Banner */}
