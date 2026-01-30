@@ -2,9 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.2.0] - 2026-01-29
 
 ### Added
+- ✅ Version number display in dashboard header
+  - Shows current application version (v0.2.0)
+  - Displayed in header alongside building information
+  - Version automatically sourced from package.json
 - ✅ Dual battery system with per-inverter tracking
   - Battery interface for independent 50kWh batteries (Inverter 1 & 2)
   - Independent SOC calculation for each battery

@@ -14,6 +14,7 @@ import InfoTooltip from '../../components/InfoTooltip';
 import IssueReportButton from '../../components/IssueReportButton';
 import { OptimizationStrategyType, getAllStrategies, getStrategy } from '../../lib/optimizationStrategies';
 import { LiveModeState, LiveModeSpeed, DEFAULT_LIVE_MODE_STATE, getUpdateInterval, advanceTime } from '../../lib/liveMode';
+import { APP_VERSION } from '../../lib/version';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -287,12 +288,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="sticky top-0 z-50 bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto">
-          {/* Mobile header with collapse toggle */}
-          <div className="p-4 flex items-center justify-between md:block">
-            <div className="flex-1 md:hidden">
-              <h1 className="text-xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
-              <p className="text-xs text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien</p>
+        <div className="max-w-7xl mx-auto p-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
+              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien • <span className="text-xs text-gray-500">v{APP_VERSION}</span></p>
+
             </div>
             <button
               onClick={() => setIsControlBarExpanded(!isControlBarExpanded)}
