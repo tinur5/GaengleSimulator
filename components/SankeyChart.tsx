@@ -5,6 +5,7 @@ type SankeyProps = {
   height?: number;
   data?: any;
   minHeight?: number;
+  onNodeClick?: (nodeId: string) => void; // New: callback for node clicks
 };
 
 // Define consistent breakpoint for mobile
@@ -33,7 +34,7 @@ const calculateHeight = (nodeCount: number, containerWidth: number, minHeight: n
   return Math.min(calculatedHeight, maxHeight);
 };
 
-export default function SankeyChart({ width = 800, height = 400, data, minHeight = 250 }: SankeyProps) {
+export default function SankeyChart({ width = 800, height = 400, data, minHeight = 250, onNodeClick }: SankeyProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width, height });
 
@@ -146,7 +147,14 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
           .selectAll("g")
           .data(nodesOut)
           .enter()
-          .append("g");
+          .append("g")
+          .style("cursor", onNodeClick ? "pointer" : "default")
+          .on("click", function(event: any, d: any) {
+            if (onNodeClick && d.id) {
+              event.stopPropagation();
+              onNodeClick(d.id);
+            }
+          });
 
         node.append("rect")
           .attr("x", (d: any) => d.x0)
@@ -155,13 +163,41 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
           .attr("width", (d: any) => Math.max(1, d.x1 - d.x0))
           .attr("fill", (d: any) => {
             const nodeId = d.id || '';
+            const nodeSource = d.source || '';
+            // Color by data source
+            if (nodeSource === 'production') return '#f59e0b'; // Orange for PV
+            if (nodeSource === 'storage') return '#8b5cf6'; // Purple for Battery
+            if (nodeSource === 'grid') return '#ef4444'; // Red for Grid
+            // Consumer nodes
+            if (nodeSource === 'assumed') return '#94a3b8'; // Gray for assumed
             if (nodeId.includes('pv')) return '#f59e0b'; // Orange for PV
             if (nodeId.includes('bat')) return '#8b5cf6'; // Purple for Battery
             if (nodeId.includes('wr')) return '#06b6d4'; // Cyan for Inverter
             if (nodeId.includes('grid')) return '#ef4444'; // Red for Grid
             return '#10b981'; // Green for consumers
           })
-          .attr("rx", 3);
+          .attr("rx", 3)
+          .attr("stroke", (d: any) => {
+            // Highlight nodes with clickable children
+            const hasChildren = d.tags && d.tags.length > 0;
+            return hasChildren && onNodeClick ? '#3b82f6' : 'none';
+          })
+          .attr("stroke-width", 2)
+          .attr("stroke-opacity", 0.5);
+
+        // Add hover effect
+        node.on("mouseenter", function(event: any, d: any) {
+          if (onNodeClick) {
+            d3.select(this).select("rect")
+              .attr("stroke-opacity", 1)
+              .attr("stroke-width", 3);
+          }
+        })
+        .on("mouseleave", function(event: any, d: any) {
+          d3.select(this).select("rect")
+            .attr("stroke-opacity", 0.5)
+            .attr("stroke-width", 2);
+        });
 
         node.append("text")
           .attr("x", (d: any) => (d.x0 < actualWidth / 2 ? d.x1 + 6 : d.x0 - 6))
@@ -207,7 +243,7 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
     })();
 
     return () => { cancelled = true; };
-  }, [dimensions.width, dimensions.height, data]);
+  }, [dimensions.width, dimensions.height, data, onNodeClick]);
 
   return (
     <div 
