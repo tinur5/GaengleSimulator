@@ -186,14 +186,14 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
           .attr("stroke-opacity", 0.5);
 
         // Add hover effect
-        node.on("mouseenter", function(event: any, d: any) {
+        node.on("mouseenter", function(this: SVGGElement, event: any, d: any) {
           if (onNodeClick) {
             d3.select(this).select("rect")
               .attr("stroke-opacity", 1)
               .attr("stroke-width", 3);
           }
         })
-        .on("mouseleave", function(event: any, d: any) {
+        .on("mouseleave", function(this: SVGGElement, event: any, d: any) {
           d3.select(this).select("rect")
             .attr("stroke-opacity", 0.5)
             .attr("stroke-width", 2);
