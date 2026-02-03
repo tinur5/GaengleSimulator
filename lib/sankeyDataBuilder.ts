@@ -52,12 +52,12 @@ export function buildSankeyData(
     return buildRootLevelSankey(consumerTree, energyFlow, showAssumptions);
   }
   
-  // If focus is root or apartments/shared, show top-level view
-  if (focusNode.id === 'building' || focusNode.id === 'apartments' || focusNode.id === 'shared') {
+  // If focus is root (building), show top-level view
+  if (focusNode.id === 'building' || !focusNodeId) {
     return buildRootLevelSankey(consumerTree, energyFlow, showAssumptions);
   }
   
-  // Otherwise, show drill-down view for this node
+  // Otherwise, show drill-down view for this node (including apartments and shared)
   return buildDrillDownSankey(focusNode, energyFlow, showAssumptions);
 }
 
