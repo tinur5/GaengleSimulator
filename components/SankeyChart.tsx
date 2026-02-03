@@ -10,6 +10,14 @@ type SankeyProps = {
 // Define consistent breakpoint for mobile
 const MOBILE_BREAKPOINT = 768;
 
+// Dynamic height calculation constants
+const DEFAULT_NODE_COUNT = 8;
+const MOBILE_NODE_SPACING = 40;
+const DESKTOP_NODE_SPACING = 60;
+const VERTICAL_PADDING = 30;
+const MAX_MOBILE_HEIGHT = 400;
+const MAX_DESKTOP_HEIGHT = 600;
+
 export default function SankeyChart({ width = 800, height = 400, data, minHeight = 250 }: SankeyProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width, height });
@@ -18,12 +26,12 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
   const calculateHeight = (nodeCount: number, containerWidth: number) => {
     const isMobile = containerWidth < MOBILE_BREAKPOINT;
     // Base calculation: each node needs approximately 40-60px of vertical space
-    const nodeSpacing = isMobile ? 40 : 60;
+    const nodeSpacing = isMobile ? MOBILE_NODE_SPACING : DESKTOP_NODE_SPACING;
     const baseHeight = Math.max(minHeight, nodeCount * nodeSpacing);
     // Add some padding for margins
-    const calculatedHeight = baseHeight + 30;
+    const calculatedHeight = baseHeight + VERTICAL_PADDING;
     // Cap at a reasonable maximum to prevent extremely tall diagrams
-    const maxHeight = isMobile ? 400 : 600;
+    const maxHeight = isMobile ? MAX_MOBILE_HEIGHT : MAX_DESKTOP_HEIGHT;
     return Math.min(calculatedHeight, maxHeight);
   };
 
@@ -34,7 +42,7 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
     const updateDimensions = () => {
       if (ref.current) {
         const containerWidth = ref.current.offsetWidth;
-        const nodeCount = data?.nodes?.length || 8; // Default to 8 if no data
+        const nodeCount = data?.nodes?.length || DEFAULT_NODE_COUNT;
         const calculatedHeight = calculateHeight(nodeCount, containerWidth);
         setDimensions({
           width: containerWidth || width,
