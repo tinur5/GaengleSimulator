@@ -8,12 +8,13 @@ const nextConfig = {
     // Otherwise fall back to timestamp for local builds
     return process.env.VERCEL_GIT_COMMIT_SHA || `build-${Date.now()}`;
   },
-  // Add headers only for HTML pages to prevent aggressive caching
+  // Add headers for HTML pages to prevent stale caching
+  // Static assets automatically get proper cache headers from Next.js
   async headers() {
     return [
       {
-        // Only apply to dashboard and main pages (HTML), not static assets
-        source: '/(.*)\\.html',
+        // Apply no-cache policy to main pages
+        source: '/',
         headers: [
           {
             key: 'Cache-Control',
@@ -22,8 +23,8 @@ const nextConfig = {
         ],
       },
       {
-        // Apply to main routes
-        source: '/:path((?!_next|static).*)',
+        // Apply no-cache policy to dashboard
+        source: '/dashboard',
         headers: [
           {
             key: 'Cache-Control',
