@@ -1,8 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 
-// Version identifier to force cache invalidation when component logic changes
-const SANKEY_VERSION = "2.0.0"; // Updated to show power in kW
-
 type SankeyProps = {
   width?: number;
   height?: number;
@@ -217,7 +214,6 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
       style={{ width: "100%", height: dimensions.height, maxWidth: "100%", overflow: "hidden" }} 
       ref={ref} 
       className="flex items-center justify-center"
-      data-sankey-version={SANKEY_VERSION}
     />
   );
 }

@@ -2,16 +2,28 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  // Generate a unique build ID to bust cache on every deployment
+  // Generate a unique build ID based on git commit or timestamp for cache busting
   generateBuildId: async () => {
-    // Use timestamp to ensure fresh builds
-    return `build-${Date.now()}`;
+    // In Vercel, VERCEL_GIT_COMMIT_SHA is available
+    // Otherwise fall back to timestamp for local builds
+    return process.env.VERCEL_GIT_COMMIT_SHA || `build-${Date.now()}`;
   },
-  // Add headers to prevent aggressive caching in production
+  // Add headers only for HTML pages to prevent aggressive caching
   async headers() {
     return [
       {
-        source: '/:path*',
+        // Only apply to dashboard and main pages (HTML), not static assets
+        source: '/(.*)\\.html',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Apply to main routes
+        source: '/:path((?!_next|static).*)',
         headers: [
           {
             key: 'Cache-Control',
