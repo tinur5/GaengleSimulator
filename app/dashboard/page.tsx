@@ -52,6 +52,9 @@ export default function Dashboard() {
   // Control bar collapse state for mobile - starts expanded for better UX
   const [isControlBarExpanded, setIsControlBarExpanded] = useState<boolean>(true);
   
+  // Sankey detailed view state - shows individual tenants when enabled
+  const [sankeyDetailedView, setSankeyDetailedView] = useState<boolean>(false);
+  
   // Live mode effect
   useEffect(() => {
     if (liveMode.isActive && !liveMode.isPaused) {
@@ -754,10 +757,203 @@ export default function Dashboard() {
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-2 md:p-4 overflow-hidden">
-            <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">⚡ Energiefluss</h2>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <h2 className="text-sm md:text-lg font-bold">⚡ Energiefluss</h2>
+              <label className="flex items-center gap-2 cursor-pointer text-xs md:text-sm">
+                <input
+                  type="checkbox"
+                  checked={sankeyDetailedView}
+                  onChange={(e) => setSankeyDetailedView(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-gray-700 font-medium">Detaillierte Ansicht</span>
+              </label>
+            </div>
             <div className="w-full">
               <SankeyChart 
-                data={{
+                data={(() => {
+                  // Calculate individual tenant consumptions with EV charging
+                  const tenant1Household = calculateTenantConsumption(tenants[0], selectedHour, dayOfWeek, month);
+                  const tenant1EVCharging = (selectedHour >= 18 && selectedHour <= 22 && dayOfWeek >= 1 && dayOfWeek <= 5) ? 11.0 : 0.0;
+                  const tenant1Total = tenant1Household + tenant1EVCharging;
+                  
+                  const tenant2Household = calculateTenantConsumption(tenants[1], selectedHour, dayOfWeek, month);
+                  const tenant2EVCharging = (selectedHour >= 19 && selectedHour <= 23 && dayOfWeek >= 1 && dayOfWeek <= 5) ? 11.0 : 0.0;
+                  const tenant2Total = tenant2Household + tenant2EVCharging;
+                  
+                  const tenant3Household = calculateTenantConsumption(tenants[2], selectedHour, dayOfWeek, month);
+                  const tenant3EVCharging = (selectedHour >= 20 && selectedHour <= 22 && dayOfWeek >= 1 && dayOfWeek <= 5 && (selectedDate.getDate() % 3 === 0)) ? 3.7 : 0.0;
+                  const tenant3Total = tenant3Household + tenant3EVCharging;
+                  
+                  if (sankeyDetailedView) {
+                    // Detailed view: Show individual tenants
+                    return {
+                      nodes: [
+                        { id: "pv", name: `PV ${pvProduction.toFixed(1)}kW` },
+                        { id: "wr1", name: `WR1 ${(pvProduction/2).toFixed(1)}kW` },
+                        { id: "wr2", name: `WR2 ${(pvProduction/2).toFixed(1)}kW` },
+                        { id: "bat1", name: `Bat1 ${battery1Soc.toFixed(0)}%` },
+                        { id: "bat2", name: `Bat2 ${battery2Soc.toFixed(0)}%` },
+                        { id: "tenant1", name: `Graf ${tenant1Total.toFixed(1)}kW` },
+                        { id: "tenant2", name: `Wetli ${tenant2Total.toFixed(1)}kW` },
+                        { id: "tenant3", name: `Bürzle ${tenant3Total.toFixed(1)}kW` },
+                        { id: "common", name: `Allgemein ${commonConsumption.toFixed(1)}kW` },
+                        { id: "grid", name: `Netz` },
+                      ],
+                      links: (() => {
+                        const links = [];
+                        
+                        // Use the selected strategy config
+                        const config = strategyConfig;
+                        
+                        const isNight = selectedHour >= config.nightStart || selectedHour < config.nightEnd;
+                        
+                        // Verbrauch pro WR (jeweils die Hälfte)
+                        const tenant1PerWR = tenant1Total / 2;
+                        const tenant2PerWR = tenant2Total / 2;
+                        const tenant3PerWR = tenant3Total / 2;
+                        const commonPerWR = commonConsumption / 2;
+                        const consumptionPerWR = (tenant1Total + tenant2Total + tenant3Total + commonConsumption) / 2;
+                        
+                        // PV-Leistung pro WR
+                        const pvPerWR = pvProduction / 2;
+                        
+                        // Energiebilanz pro WR
+                        const netFlowPerWR = pvPerWR - consumptionPerWR;
+                        
+                        // === Wechselrichter 1 ===
+                        let wr1Input = 0;
+                        let wr1Output = 0;
+                        
+                        // PV zu WR1
+                        if (pvPerWR > 0.05) {
+                          links.push({ source: 0, target: 1, value: pvPerWR * 10 });
+                          wr1Input += pvPerWR;
+                        }
+                        
+                        // Bei Defizit: Batterie1 oder Netz zu WR1 (optimiert)
+                        if (netFlowPerWR < -0.05) {
+                          const deficit = Math.abs(netFlowPerWR);
+                          
+                          // Intelligente Batterienutzung
+                          const shouldUseBattery = isNight 
+                            ? battery1Soc > config.targetNightSoc
+                            : battery1Soc > config.minSoc;
+                          
+                          if (shouldUseBattery) {
+                            const fromBattery = Math.min(deficit, config.maxDischargeRate);
+                            links.push({ source: 3, target: 1, value: fromBattery * 10 });
+                            wr1Input += fromBattery;
+                            
+                            const fromGrid = deficit - fromBattery;
+                            if (fromGrid > 0.05) {
+                              links.push({ source: 9, target: 1, value: fromGrid * 10 });
+                              wr1Input += fromGrid;
+                            }
+                          } else {
+                            links.push({ source: 9, target: 1, value: deficit * 10 });
+                            wr1Input += deficit;
+                          }
+                        }
+                        
+                        // WR1 zu Verbrauchern (detailed)
+                        if (tenant1PerWR > 0.05) {
+                          links.push({ source: 1, target: 5, value: tenant1PerWR * 10 });
+                          wr1Output += tenant1PerWR;
+                        }
+                        if (tenant2PerWR > 0.05) {
+                          links.push({ source: 1, target: 6, value: tenant2PerWR * 10 });
+                          wr1Output += tenant2PerWR;
+                        }
+                        if (tenant3PerWR > 0.05) {
+                          links.push({ source: 1, target: 7, value: tenant3PerWR * 10 });
+                          wr1Output += tenant3PerWR;
+                        }
+                        if (commonPerWR > 0.05) {
+                          links.push({ source: 1, target: 8, value: commonPerWR * 10 });
+                          wr1Output += commonPerWR;
+                        }
+                        
+                        // Bei Überschuss: WR1 zu Batterie1 oder Netz
+                        if (netFlowPerWR > 0.05) {
+                          if (battery1Soc < 95) {
+                            links.push({ source: 1, target: 3, value: netFlowPerWR * 10 });
+                            wr1Output += netFlowPerWR;
+                          } else {
+                            links.push({ source: 1, target: 9, value: netFlowPerWR * 10 });
+                            wr1Output += netFlowPerWR;
+                          }
+                        }
+                        
+                        // === Wechselrichter 2 ===
+                        let wr2Input = 0;
+                        let wr2Output = 0;
+                        
+                        // PV zu WR2
+                        if (pvPerWR > 0.05) {
+                          links.push({ source: 0, target: 2, value: pvPerWR * 10 });
+                          wr2Input += pvPerWR;
+                        }
+                        
+                        // Bei Defizit: Batterie2 oder Netz zu WR2 (optimiert)
+                        if (netFlowPerWR < -0.05) {
+                          const deficit = Math.abs(netFlowPerWR);
+                          
+                          const shouldUseBattery = isNight 
+                            ? battery2Soc > config.targetNightSoc
+                            : battery2Soc > config.minSoc;
+                          
+                          if (shouldUseBattery) {
+                            const fromBattery = Math.min(deficit, config.maxDischargeRate);
+                            links.push({ source: 4, target: 2, value: fromBattery * 10 });
+                            wr2Input += fromBattery;
+                            
+                            const fromGrid = deficit - fromBattery;
+                            if (fromGrid > 0.05) {
+                              links.push({ source: 9, target: 2, value: fromGrid * 10 });
+                              wr2Input += fromGrid;
+                            }
+                          } else {
+                            links.push({ source: 9, target: 2, value: deficit * 10 });
+                            wr2Input += deficit;
+                          }
+                        }
+                        
+                        // WR2 zu Verbrauchern (detailed)
+                        if (tenant1PerWR > 0.05) {
+                          links.push({ source: 2, target: 5, value: tenant1PerWR * 10 });
+                          wr2Output += tenant1PerWR;
+                        }
+                        if (tenant2PerWR > 0.05) {
+                          links.push({ source: 2, target: 6, value: tenant2PerWR * 10 });
+                          wr2Output += tenant2PerWR;
+                        }
+                        if (tenant3PerWR > 0.05) {
+                          links.push({ source: 2, target: 7, value: tenant3PerWR * 10 });
+                          wr2Output += tenant3PerWR;
+                        }
+                        if (commonPerWR > 0.05) {
+                          links.push({ source: 2, target: 8, value: commonPerWR * 10 });
+                          wr2Output += commonPerWR;
+                        }
+                        
+                        // Bei Überschuss: WR2 zu Batterie2 oder Netz
+                        if (netFlowPerWR > 0.05) {
+                          if (battery2Soc < 95) {
+                            links.push({ source: 2, target: 4, value: netFlowPerWR * 10 });
+                            wr2Output += netFlowPerWR;
+                          } else {
+                            links.push({ source: 2, target: 9, value: netFlowPerWR * 10 });
+                            wr2Output += netFlowPerWR;
+                          }
+                        }
+                        
+                        return links;
+                      })()
+                    };
+                  } else {
+                    // Simple view: Aggregate tenants into "Wohnungen"
+                    return {
                   nodes: [
                     { id: "pv", name: `PV ${pvProduction.toFixed(1)}kW` },
                     { id: "wr1", name: `WR1 ${(pvProduction/2).toFixed(1)}kW` },
@@ -907,7 +1103,9 @@ export default function Dashboard() {
                     
                     return links;
                   })()
-                }}
+                    };
+                  }
+                })()}
               />
             </div>
           </div>
