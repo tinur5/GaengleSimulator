@@ -22,6 +22,9 @@ export interface SankeyData {
   links: SankeyLink[];
 }
 
+// Constants
+const MAX_BATTERY_DISCHARGE_W = 10000; // Maximum battery discharge rate in watts
+
 export interface EnergyFlowData {
   pvProductionW: number;
   battery1SocPercent: number;
@@ -52,12 +55,12 @@ export function buildSankeyData(
     return buildRootLevelSankey(consumerTree, energyFlow, showAssumptions);
   }
   
-  // If focus is root or apartments/shared, show top-level view
-  if (focusNode.id === 'building' || focusNode.id === 'apartments' || focusNode.id === 'shared') {
+  // If focus is root (building), show top-level view
+  if (focusNode.id === 'building') {
     return buildRootLevelSankey(consumerTree, energyFlow, showAssumptions);
   }
   
-  // Otherwise, show drill-down view for this node
+  // Otherwise, show drill-down view for this node (including apartments and shared)
   return buildDrillDownSankey(focusNode, energyFlow, showAssumptions);
 }
 
@@ -101,21 +104,25 @@ function buildRootLevelSankey(
   
   const apartmentsIndex = nodes.length;
   if (apartmentsNode) {
+    const hasChildren = apartmentsNode.children && apartmentsNode.children.length > 0;
     nodes.push({ 
       id: 'apartments', 
       name: `Wohnungen ${(apartmentsNode.powerW / 1000).toFixed(1)}kW`,
       powerW: apartmentsNode.powerW,
-      source: apartmentsNode.source
+      source: apartmentsNode.source,
+      tags: hasChildren ? ['has-children'] : []
     });
   }
   
   const sharedIndex = nodes.length;
   if (sharedNode) {
+    const hasChildren = sharedNode.children && sharedNode.children.length > 0;
     nodes.push({ 
       id: 'shared', 
       name: `Allgemein ${(sharedNode.powerW / 1000).toFixed(1)}kW`,
       powerW: sharedNode.powerW,
-      source: sharedNode.source
+      source: sharedNode.source,
+      tags: hasChildren ? ['has-children'] : []
     });
   }
   
@@ -146,16 +153,23 @@ function buildRootLevelSankey(
     
     // PV surplus to batteries or grid
     if (surplusW > 0) {
-      // Charging batteries
-      if (energyFlow.battery1Direction === 'charging') {
-        links.push({ source: pvIndex, target: bat1Index, value: surplusW / 2 });
-      }
-      if (energyFlow.battery2Direction === 'charging') {
-        links.push({ source: pvIndex, target: bat2Index, value: surplusW / 2 });
+      // Charging batteries - distribute based on which are charging
+      const chargingBat1 = energyFlow.battery1Direction === 'charging';
+      const chargingBat2 = energyFlow.battery2Direction === 'charging';
+      const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
+      
+      if (numChargingBatteries > 0) {
+        const surplusPerBattery = surplusW / numChargingBatteries;
+        if (chargingBat1) {
+          links.push({ source: pvIndex, target: bat1Index, value: surplusPerBattery });
+        }
+        if (chargingBat2) {
+          links.push({ source: pvIndex, target: bat2Index, value: surplusPerBattery });
+        }
       }
       
       // Export to grid (if batteries full or not charging)
-      if (energyFlow.battery1Direction !== 'charging' && energyFlow.battery2Direction !== 'charging') {
+      if (!chargingBat1 && !chargingBat2) {
         links.push({ source: pvIndex, target: gridIndex, value: surplusW });
       }
     }
@@ -167,7 +181,7 @@ function buildRootLevelSankey(
     
     // From batteries if discharging
     if (energyFlow.battery1Direction === 'discharging') {
-      const fromBat1 = Math.min(remainingDeficit / 2, 10000); // Max 10kW discharge
+      const fromBat1 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05) {
         // Battery to consumers
         if (apartmentsNode && apartmentsNode.powerW > 0) {
@@ -183,7 +197,7 @@ function buildRootLevelSankey(
     }
     
     if (energyFlow.battery2Direction === 'discharging') {
-      const fromBat2 = Math.min(remainingDeficit / 2, 10000); // Max 10kW discharge
+      const fromBat2 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05) {
         // Battery to consumers
         if (apartmentsNode && apartmentsNode.powerW > 0) {
@@ -215,7 +229,7 @@ function buildRootLevelSankey(
 }
 
 /**
- * Build drill-down Sankey: Show children of focus node
+ * Build drill-down Sankey: Show children of focus node with proper energy sources
  */
 function buildDrillDownSankey(
   focusNode: ConsumerNode,
@@ -241,52 +255,141 @@ function buildDrillDownSankey(
     return { nodes, links };
   }
   
-  // Add energy source (simplified - from parent or grid)
-  const sourceIndex = nodes.length;
-  nodes.push({
-    id: 'source',
-    name: `${focusNode.name} Total`,
-    source: 'parent'
+  // Add energy sources (same as root level for consistency)
+  const pvIndex = nodes.length;
+  nodes.push({ id: 'pv', name: `PV ${(energyFlow.pvProductionW / 1000).toFixed(1)}kW`, source: 'production' });
+  
+  const bat1Index = nodes.length;
+  nodes.push({ 
+    id: 'bat1', 
+    name: `Bat1 ${energyFlow.battery1SocPercent.toFixed(0)}%`, 
+    source: 'storage',
+    tags: [energyFlow.battery1Direction]
   });
   
+  const bat2Index = nodes.length;
+  nodes.push({ 
+    id: 'bat2', 
+    name: `Bat2 ${energyFlow.battery2SocPercent.toFixed(0)}%`, 
+    source: 'storage',
+    tags: [energyFlow.battery2Direction]
+  });
+  
+  const gridIndex = nodes.length;
+  nodes.push({ id: 'grid', name: 'Netz', source: 'grid' });
+  
   // Add child nodes
-  const childIndices: number[] = [];
-  children.forEach(child => {
-    // Skip if assumed and not showing assumptions
-    if (!showAssumptions && child.source === 'assumed') {
-      return;
-    }
-    
-    const index = nodes.length;
-    childIndices.push(index);
-    
+  const childStartIndex = nodes.length;
+  const validChildren = children.filter(child => !(!showAssumptions && child.source === 'assumed'));
+  
+  validChildren.forEach(child => {
     const powerKw = (child.powerW / 1000).toFixed(1);
     const badge = child.source === 'assumed' ? ' 📊' : 
                   child.source === 'simulated' ? ' ⚙️' : '';
+    const hasChildren = child.children && child.children.length > 0;
     
     nodes.push({
       id: child.id,
       name: `${child.name} ${powerKw}kW${badge}`,
       powerW: child.powerW,
       source: child.source,
-      tags: child.tags
+      tags: hasChildren ? ['has-children', ...(child.tags || [])] : child.tags
     });
   });
   
-  // Add links from source to each child
-  children.forEach((child, i) => {
-    if (!showAssumptions && child.source === 'assumed') {
-      return;
+  // Calculate energy flows to children (same logic as root)
+  const totalConsumptionW = validChildren.reduce((sum, child) => sum + child.powerW, 0);
+  
+  if (totalConsumptionW === 0) {
+    return { nodes, links };
+  }
+  
+  const pvAvailableW = energyFlow.pvProductionW;
+  const deficitW = Math.max(0, totalConsumptionW - pvAvailableW);
+  const surplusW = Math.max(0, pvAvailableW - totalConsumptionW);
+  
+  // PV flows to children
+  if (pvAvailableW > 0) {
+    const pvToConsumption = Math.min(pvAvailableW, totalConsumptionW);
+    
+    // Distribute PV to children proportionally
+    validChildren.forEach((child, i) => {
+      if (child.powerW > 0) {
+        const childShare = (child.powerW / totalConsumptionW) * pvToConsumption;
+        if (childShare > 0.05) {
+          links.push({ 
+            source: pvIndex, 
+            target: childStartIndex + i, 
+            value: childShare 
+          });
+        }
+      }
+    });
+    
+    // PV surplus to batteries or grid (only show if surplus exists)
+    if (surplusW > 0) {
+      const chargingBat1 = energyFlow.battery1Direction === 'charging';
+      const chargingBat2 = energyFlow.battery2Direction === 'charging';
+      const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
+      
+      if (numChargingBatteries > 0) {
+        const surplusPerBattery = surplusW / numChargingBatteries;
+        if (chargingBat1) {
+          links.push({ source: pvIndex, target: bat1Index, value: surplusPerBattery });
+        }
+        if (chargingBat2) {
+          links.push({ source: pvIndex, target: bat2Index, value: surplusPerBattery });
+        }
+      }
+      
+      // Export to grid if batteries not charging
+      if (!chargingBat1 && !chargingBat2) {
+        links.push({ source: pvIndex, target: gridIndex, value: surplusW });
+      }
+    }
+  }
+  
+  // Deficit: from batteries or grid
+  if (deficitW > 0) {
+    let remainingDeficit = deficitW;
+    
+    // From batteries if discharging
+    if (energyFlow.battery1Direction === 'discharging') {
+      const fromBat1 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
+      if (fromBat1 > 0.05) {
+        validChildren.forEach((child, i) => {
+          if (child.powerW > 0) {
+            const share = (child.powerW / totalConsumptionW) * fromBat1;
+            links.push({ source: bat1Index, target: childStartIndex + i, value: share });
+          }
+        });
+        remainingDeficit -= fromBat1;
+      }
     }
     
-    if (child.powerW > 0.05) {
-      links.push({
-        source: sourceIndex,
-        target: childIndices[i],
-        value: child.powerW
+    if (energyFlow.battery2Direction === 'discharging') {
+      const fromBat2 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
+      if (fromBat2 > 0.05) {
+        validChildren.forEach((child, i) => {
+          if (child.powerW > 0) {
+            const share = (child.powerW / totalConsumptionW) * fromBat2;
+            links.push({ source: bat2Index, target: childStartIndex + i, value: share });
+          }
+        });
+        remainingDeficit -= fromBat2;
+      }
+    }
+    
+    // Remaining deficit from grid
+    if (remainingDeficit > 0.05) {
+      validChildren.forEach((child, i) => {
+        if (child.powerW > 0) {
+          const share = (child.powerW / totalConsumptionW) * remainingDeficit;
+          links.push({ source: gridIndex, target: childStartIndex + i, value: share });
+        }
       });
     }
-  });
+  }
   
   return { nodes, links };
 }

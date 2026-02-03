@@ -179,24 +179,30 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
           .attr("rx", 3)
           .attr("stroke", (d: any) => {
             // Highlight nodes with clickable children
-            const hasChildren = d.tags && d.tags.length > 0;
+            const hasChildren = d.tags && d.tags.includes('has-children');
             return hasChildren && onNodeClick ? '#3b82f6' : 'none';
           })
-          .attr("stroke-width", 2)
-          .attr("stroke-opacity", 0.5);
+          .attr("stroke-width", (d: any) => {
+            const hasChildren = d.tags && d.tags.includes('has-children');
+            return hasChildren && onNodeClick ? 2 : 0;
+          })
+          .attr("stroke-opacity", 0.7);
 
         // Add hover effect
         node.on("mouseenter", function(this: SVGGElement, event: any, d: any) {
           if (onNodeClick) {
             d3.select(this).select("rect")
+              .attr("stroke", "#3b82f6")
               .attr("stroke-opacity", 1)
               .attr("stroke-width", 3);
           }
         })
         .on("mouseleave", function(this: SVGGElement, event: any, d: any) {
+          const hasChildren = d.tags && d.tags.includes('has-children');
           d3.select(this).select("rect")
-            .attr("stroke-opacity", 0.5)
-            .attr("stroke-width", 2);
+            .attr("stroke", hasChildren && onNodeClick ? '#3b82f6' : 'none')
+            .attr("stroke-opacity", 0.7)
+            .attr("stroke-width", hasChildren && onNodeClick ? 2 : 0);
         });
 
         node.append("text")
