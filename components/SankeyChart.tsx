@@ -4,14 +4,28 @@ type SankeyProps = {
   width?: number;
   height?: number;
   data?: any;
+  minHeight?: number;
 };
 
 // Define consistent breakpoint for mobile
 const MOBILE_BREAKPOINT = 768;
 
-export default function SankeyChart({ width = 800, height = 400, data }: SankeyProps) {
+export default function SankeyChart({ width = 800, height = 400, data, minHeight = 250 }: SankeyProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width, height });
+
+  // Calculate dynamic height based on number of nodes
+  const calculateHeight = (nodeCount: number, containerWidth: number) => {
+    const isMobile = containerWidth < MOBILE_BREAKPOINT;
+    // Base calculation: each node needs approximately 40-60px of vertical space
+    const nodeSpacing = isMobile ? 40 : 60;
+    const baseHeight = Math.max(minHeight, nodeCount * nodeSpacing);
+    // Add some padding for margins
+    const calculatedHeight = baseHeight + 30;
+    // Cap at a reasonable maximum to prevent extremely tall diagrams
+    const maxHeight = isMobile ? 400 : 600;
+    return Math.min(calculatedHeight, maxHeight);
+  };
 
   // Update dimensions on resize with debouncing
   useEffect(() => {
@@ -20,10 +34,11 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
     const updateDimensions = () => {
       if (ref.current) {
         const containerWidth = ref.current.offsetWidth;
-        const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+        const nodeCount = data?.nodes?.length || 8; // Default to 8 if no data
+        const calculatedHeight = calculateHeight(nodeCount, containerWidth);
         setDimensions({
           width: containerWidth || width,
-          height: isMobile ? Math.min(250, height) : height
+          height: calculatedHeight
         });
       }
     };
@@ -40,7 +55,7 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
       clearTimeout(timeoutId);
       window.removeEventListener('resize', debouncedUpdate);
     };
-  }, [width, height]);
+  }, [width, height, data]);
 
   useEffect(() => {
     let cancelled = false;
