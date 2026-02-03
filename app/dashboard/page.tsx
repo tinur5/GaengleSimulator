@@ -786,7 +786,7 @@ export default function Dashboard() {
                   const tenant3Total = tenant3Household + tenant3EVCharging;
                   
                   if (sankeyDetailedView) {
-                    // Detailed view: Show individual tenants
+                    // Detailed view: Show individual tenants and common area breakdown
                     return {
                       nodes: [
                         { id: "pv", name: `PV ${pvProduction.toFixed(1)}kW` },
@@ -794,10 +794,18 @@ export default function Dashboard() {
                         { id: "wr2", name: `WR2 ${(pvProduction/2).toFixed(1)}kW` },
                         { id: "bat1", name: `Bat1 ${battery1Soc.toFixed(0)}%` },
                         { id: "bat2", name: `Bat2 ${battery2Soc.toFixed(0)}%` },
-                        { id: "tenant1", name: `Graf ${tenant1Total.toFixed(1)}kW` },
-                        { id: "tenant2", name: `Wetli ${tenant2Total.toFixed(1)}kW` },
-                        { id: "tenant3", name: `Bürzle ${tenant3Total.toFixed(1)}kW` },
-                        { id: "common", name: `Allgemein ${commonConsumption.toFixed(1)}kW` },
+                        // Tenant nodes - household + EV
+                        { id: "tenant1_house", name: `Graf Haushalt ${tenant1Household.toFixed(1)}kW` },
+                        { id: "tenant1_ev", name: `Graf EV ${tenant1EVCharging.toFixed(1)}kW` },
+                        { id: "tenant2_house", name: `Wetli Haushalt ${tenant2Household.toFixed(1)}kW` },
+                        { id: "tenant2_ev", name: `Wetli EV ${tenant2EVCharging.toFixed(1)}kW` },
+                        { id: "tenant3_house", name: `Bürzle Haushalt ${tenant3Household.toFixed(1)}kW` },
+                        { id: "tenant3_ev", name: `Bürzle EV ${tenant3EVCharging.toFixed(1)}kW` },
+                        // Common area breakdown
+                        { id: "heating", name: `Heizung ${commonAreaData.heating.toFixed(1)}kW` },
+                        { id: "boiler", name: `Warmwasser ${commonAreaData.boiler.toFixed(1)}kW` },
+                        { id: "pool", name: `Pool ${commonAreaData.pool.toFixed(1)}kW` },
+                        { id: "garage", name: `Garage ${commonAreaData.garage.toFixed(1)}kW` },
                         { id: "grid", name: `Netz` },
                       ],
                       links: (() => {
@@ -808,11 +816,18 @@ export default function Dashboard() {
                         
                         const isNight = selectedHour >= config.nightStart || selectedHour < config.nightEnd;
                         
-                        // Verbrauch pro WR (jeweils die Hälfte)
-                        const tenant1PerWR = tenant1Total / 2;
-                        const tenant2PerWR = tenant2Total / 2;
-                        const tenant3PerWR = tenant3Total / 2;
-                        const commonPerWR = commonConsumption / 2;
+                        // Detailed breakdown per WR (jeweils die Hälfte)
+                        const tenant1HousePerWR = tenant1Household / 2;
+                        const tenant1EVPerWR = tenant1EVCharging / 2;
+                        const tenant2HousePerWR = tenant2Household / 2;
+                        const tenant2EVPerWR = tenant2EVCharging / 2;
+                        const tenant3HousePerWR = tenant3Household / 2;
+                        const tenant3EVPerWR = tenant3EVCharging / 2;
+                        const heatingPerWR = commonAreaData.heating / 2;
+                        const boilerPerWR = commonAreaData.boiler / 2;
+                        const poolPerWR = commonAreaData.pool / 2;
+                        const garagePerWR = commonAreaData.garage / 2;
+                        
                         const consumptionPerWR = (tenant1Total + tenant2Total + tenant3Total + commonConsumption) / 2;
                         
                         // PV-Leistung pro WR
@@ -847,31 +862,59 @@ export default function Dashboard() {
                             
                             const fromGrid = deficit - fromBattery;
                             if (fromGrid > 0.05) {
-                              links.push({ source: 9, target: 1, value: fromGrid * 10 });
+                              links.push({ source: 15, target: 1, value: fromGrid * 10 });
                               wr1Input += fromGrid;
                             }
                           } else {
-                            links.push({ source: 9, target: 1, value: deficit * 10 });
+                            links.push({ source: 15, target: 1, value: deficit * 10 });
                             wr1Input += deficit;
                           }
                         }
                         
-                        // WR1 zu Verbrauchern (detailed)
-                        if (tenant1PerWR > 0.05) {
-                          links.push({ source: 1, target: 5, value: tenant1PerWR * 10 });
-                          wr1Output += tenant1PerWR;
+                        // WR1 zu Verbrauchern (detailed breakdown)
+                        // Tenant 1
+                        if (tenant1HousePerWR > 0.05) {
+                          links.push({ source: 1, target: 5, value: tenant1HousePerWR * 10 });
+                          wr1Output += tenant1HousePerWR;
                         }
-                        if (tenant2PerWR > 0.05) {
-                          links.push({ source: 1, target: 6, value: tenant2PerWR * 10 });
-                          wr1Output += tenant2PerWR;
+                        if (tenant1EVPerWR > 0.05) {
+                          links.push({ source: 1, target: 6, value: tenant1EVPerWR * 10 });
+                          wr1Output += tenant1EVPerWR;
                         }
-                        if (tenant3PerWR > 0.05) {
-                          links.push({ source: 1, target: 7, value: tenant3PerWR * 10 });
-                          wr1Output += tenant3PerWR;
+                        // Tenant 2
+                        if (tenant2HousePerWR > 0.05) {
+                          links.push({ source: 1, target: 7, value: tenant2HousePerWR * 10 });
+                          wr1Output += tenant2HousePerWR;
                         }
-                        if (commonPerWR > 0.05) {
-                          links.push({ source: 1, target: 8, value: commonPerWR * 10 });
-                          wr1Output += commonPerWR;
+                        if (tenant2EVPerWR > 0.05) {
+                          links.push({ source: 1, target: 8, value: tenant2EVPerWR * 10 });
+                          wr1Output += tenant2EVPerWR;
+                        }
+                        // Tenant 3
+                        if (tenant3HousePerWR > 0.05) {
+                          links.push({ source: 1, target: 9, value: tenant3HousePerWR * 10 });
+                          wr1Output += tenant3HousePerWR;
+                        }
+                        if (tenant3EVPerWR > 0.05) {
+                          links.push({ source: 1, target: 10, value: tenant3EVPerWR * 10 });
+                          wr1Output += tenant3EVPerWR;
+                        }
+                        // Common areas
+                        if (heatingPerWR > 0.05) {
+                          links.push({ source: 1, target: 11, value: heatingPerWR * 10 });
+                          wr1Output += heatingPerWR;
+                        }
+                        if (boilerPerWR > 0.05) {
+                          links.push({ source: 1, target: 12, value: boilerPerWR * 10 });
+                          wr1Output += boilerPerWR;
+                        }
+                        if (poolPerWR > 0.05) {
+                          links.push({ source: 1, target: 13, value: poolPerWR * 10 });
+                          wr1Output += poolPerWR;
+                        }
+                        if (garagePerWR > 0.05) {
+                          links.push({ source: 1, target: 14, value: garagePerWR * 10 });
+                          wr1Output += garagePerWR;
                         }
                         
                         // Bei Überschuss: WR1 zu Batterie1 oder Netz
@@ -880,7 +923,7 @@ export default function Dashboard() {
                             links.push({ source: 1, target: 3, value: netFlowPerWR * 10 });
                             wr1Output += netFlowPerWR;
                           } else {
-                            links.push({ source: 1, target: 9, value: netFlowPerWR * 10 });
+                            links.push({ source: 1, target: 15, value: netFlowPerWR * 10 });
                             wr1Output += netFlowPerWR;
                           }
                         }
@@ -910,31 +953,59 @@ export default function Dashboard() {
                             
                             const fromGrid = deficit - fromBattery;
                             if (fromGrid > 0.05) {
-                              links.push({ source: 9, target: 2, value: fromGrid * 10 });
+                              links.push({ source: 15, target: 2, value: fromGrid * 10 });
                               wr2Input += fromGrid;
                             }
                           } else {
-                            links.push({ source: 9, target: 2, value: deficit * 10 });
+                            links.push({ source: 15, target: 2, value: deficit * 10 });
                             wr2Input += deficit;
                           }
                         }
                         
-                        // WR2 zu Verbrauchern (detailed)
-                        if (tenant1PerWR > 0.05) {
-                          links.push({ source: 2, target: 5, value: tenant1PerWR * 10 });
-                          wr2Output += tenant1PerWR;
+                        // WR2 zu Verbrauchern (detailed breakdown)
+                        // Tenant 1
+                        if (tenant1HousePerWR > 0.05) {
+                          links.push({ source: 2, target: 5, value: tenant1HousePerWR * 10 });
+                          wr2Output += tenant1HousePerWR;
                         }
-                        if (tenant2PerWR > 0.05) {
-                          links.push({ source: 2, target: 6, value: tenant2PerWR * 10 });
-                          wr2Output += tenant2PerWR;
+                        if (tenant1EVPerWR > 0.05) {
+                          links.push({ source: 2, target: 6, value: tenant1EVPerWR * 10 });
+                          wr2Output += tenant1EVPerWR;
                         }
-                        if (tenant3PerWR > 0.05) {
-                          links.push({ source: 2, target: 7, value: tenant3PerWR * 10 });
-                          wr2Output += tenant3PerWR;
+                        // Tenant 2
+                        if (tenant2HousePerWR > 0.05) {
+                          links.push({ source: 2, target: 7, value: tenant2HousePerWR * 10 });
+                          wr2Output += tenant2HousePerWR;
                         }
-                        if (commonPerWR > 0.05) {
-                          links.push({ source: 2, target: 8, value: commonPerWR * 10 });
-                          wr2Output += commonPerWR;
+                        if (tenant2EVPerWR > 0.05) {
+                          links.push({ source: 2, target: 8, value: tenant2EVPerWR * 10 });
+                          wr2Output += tenant2EVPerWR;
+                        }
+                        // Tenant 3
+                        if (tenant3HousePerWR > 0.05) {
+                          links.push({ source: 2, target: 9, value: tenant3HousePerWR * 10 });
+                          wr2Output += tenant3HousePerWR;
+                        }
+                        if (tenant3EVPerWR > 0.05) {
+                          links.push({ source: 2, target: 10, value: tenant3EVPerWR * 10 });
+                          wr2Output += tenant3EVPerWR;
+                        }
+                        // Common areas
+                        if (heatingPerWR > 0.05) {
+                          links.push({ source: 2, target: 11, value: heatingPerWR * 10 });
+                          wr2Output += heatingPerWR;
+                        }
+                        if (boilerPerWR > 0.05) {
+                          links.push({ source: 2, target: 12, value: boilerPerWR * 10 });
+                          wr2Output += boilerPerWR;
+                        }
+                        if (poolPerWR > 0.05) {
+                          links.push({ source: 2, target: 13, value: poolPerWR * 10 });
+                          wr2Output += poolPerWR;
+                        }
+                        if (garagePerWR > 0.05) {
+                          links.push({ source: 2, target: 14, value: garagePerWR * 10 });
+                          wr2Output += garagePerWR;
                         }
                         
                         // Bei Überschuss: WR2 zu Batterie2 oder Netz
@@ -943,7 +1014,7 @@ export default function Dashboard() {
                             links.push({ source: 2, target: 4, value: netFlowPerWR * 10 });
                             wr2Output += netFlowPerWR;
                           } else {
-                            links.push({ source: 2, target: 9, value: netFlowPerWR * 10 });
+                            links.push({ source: 2, target: 15, value: netFlowPerWR * 10 });
                             wr2Output += netFlowPerWR;
                           }
                         }
