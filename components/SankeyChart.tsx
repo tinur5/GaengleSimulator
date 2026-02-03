@@ -4,12 +4,36 @@ type SankeyProps = {
   width?: number;
   height?: number;
   data?: any;
+  minHeight?: number;
 };
 
 // Define consistent breakpoint for mobile
 const MOBILE_BREAKPOINT = 768;
 
-export default function SankeyChart({ width = 800, height = 400, data }: SankeyProps) {
+// Dynamic height calculation constants
+const DEFAULT_NODE_COUNT = 8;
+const MOBILE_NODE_SPACING = 40;
+const DESKTOP_NODE_SPACING = 60;
+const VERTICAL_PADDING = 30;
+const MAX_MOBILE_HEIGHT = 400;
+const MAX_DESKTOP_HEIGHT = 600;
+
+// Calculate dynamic height based on number of nodes
+const calculateHeight = (nodeCount: number, containerWidth: number, minHeight: number) => {
+  const isMobile = containerWidth < MOBILE_BREAKPOINT;
+  // Use default if nodeCount is 0 or invalid
+  const effectiveNodeCount = nodeCount > 0 ? nodeCount : DEFAULT_NODE_COUNT;
+  // Base calculation: each node needs approximately 40-60px of vertical space
+  const nodeSpacing = isMobile ? MOBILE_NODE_SPACING : DESKTOP_NODE_SPACING;
+  const baseHeight = Math.max(minHeight, effectiveNodeCount * nodeSpacing);
+  // Add some padding for margins
+  const calculatedHeight = baseHeight + VERTICAL_PADDING;
+  // Cap at a reasonable maximum to prevent extremely tall diagrams
+  const maxHeight = isMobile ? MAX_MOBILE_HEIGHT : MAX_DESKTOP_HEIGHT;
+  return Math.min(calculatedHeight, maxHeight);
+};
+
+export default function SankeyChart({ width = 800, height = 400, data, minHeight = 250 }: SankeyProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width, height });
 
@@ -20,10 +44,11 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
     const updateDimensions = () => {
       if (ref.current) {
         const containerWidth = ref.current.offsetWidth;
-        const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+        const nodeCount = data?.nodes?.length || 0;
+        const calculatedHeight = calculateHeight(nodeCount, containerWidth, minHeight);
         setDimensions({
           width: containerWidth || width,
-          height: isMobile ? Math.min(250, height) : height
+          height: calculatedHeight
         });
       }
     };
@@ -40,7 +65,7 @@ export default function SankeyChart({ width = 800, height = 400, data }: SankeyP
       clearTimeout(timeoutId);
       window.removeEventListener('resize', debouncedUpdate);
     };
-  }, [width, height]);
+  }, [width, height, data?.nodes?.length, minHeight]);
 
   useEffect(() => {
     let cancelled = false;
