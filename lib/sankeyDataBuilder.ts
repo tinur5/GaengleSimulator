@@ -22,6 +22,9 @@ export interface SankeyData {
   links: SankeyLink[];
 }
 
+// Constants
+const MAX_BATTERY_DISCHARGE_W = 10000; // Maximum battery discharge rate in watts
+
 export interface EnergyFlowData {
   pvProductionW: number;
   battery1SocPercent: number;
@@ -53,7 +56,7 @@ export function buildSankeyData(
   }
   
   // If focus is root (building), show top-level view
-  if (focusNode.id === 'building' || !focusNodeId) {
+  if (focusNode.id === 'building') {
     return buildRootLevelSankey(consumerTree, energyFlow, showAssumptions);
   }
   
@@ -150,16 +153,23 @@ function buildRootLevelSankey(
     
     // PV surplus to batteries or grid
     if (surplusW > 0) {
-      // Charging batteries
-      if (energyFlow.battery1Direction === 'charging') {
-        links.push({ source: pvIndex, target: bat1Index, value: surplusW / 2 });
-      }
-      if (energyFlow.battery2Direction === 'charging') {
-        links.push({ source: pvIndex, target: bat2Index, value: surplusW / 2 });
+      // Charging batteries - distribute based on which are charging
+      const chargingBat1 = energyFlow.battery1Direction === 'charging';
+      const chargingBat2 = energyFlow.battery2Direction === 'charging';
+      const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
+      
+      if (numChargingBatteries > 0) {
+        const surplusPerBattery = surplusW / numChargingBatteries;
+        if (chargingBat1) {
+          links.push({ source: pvIndex, target: bat1Index, value: surplusPerBattery });
+        }
+        if (chargingBat2) {
+          links.push({ source: pvIndex, target: bat2Index, value: surplusPerBattery });
+        }
       }
       
       // Export to grid (if batteries full or not charging)
-      if (energyFlow.battery1Direction !== 'charging' && energyFlow.battery2Direction !== 'charging') {
+      if (!chargingBat1 && !chargingBat2) {
         links.push({ source: pvIndex, target: gridIndex, value: surplusW });
       }
     }
@@ -171,7 +181,7 @@ function buildRootLevelSankey(
     
     // From batteries if discharging
     if (energyFlow.battery1Direction === 'discharging') {
-      const fromBat1 = Math.min(remainingDeficit / 2, 10000); // Max 10kW discharge
+      const fromBat1 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05) {
         // Battery to consumers
         if (apartmentsNode && apartmentsNode.powerW > 0) {
@@ -187,7 +197,7 @@ function buildRootLevelSankey(
     }
     
     if (energyFlow.battery2Direction === 'discharging') {
-      const fromBat2 = Math.min(remainingDeficit / 2, 10000); // Max 10kW discharge
+      const fromBat2 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05) {
         // Battery to consumers
         if (apartmentsNode && apartmentsNode.powerW > 0) {
@@ -318,15 +328,22 @@ function buildDrillDownSankey(
     
     // PV surplus to batteries or grid (only show if surplus exists)
     if (surplusW > 0) {
-      if (energyFlow.battery1Direction === 'charging') {
-        links.push({ source: pvIndex, target: bat1Index, value: surplusW / 2 });
-      }
-      if (energyFlow.battery2Direction === 'charging') {
-        links.push({ source: pvIndex, target: bat2Index, value: surplusW / 2 });
+      const chargingBat1 = energyFlow.battery1Direction === 'charging';
+      const chargingBat2 = energyFlow.battery2Direction === 'charging';
+      const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
+      
+      if (numChargingBatteries > 0) {
+        const surplusPerBattery = surplusW / numChargingBatteries;
+        if (chargingBat1) {
+          links.push({ source: pvIndex, target: bat1Index, value: surplusPerBattery });
+        }
+        if (chargingBat2) {
+          links.push({ source: pvIndex, target: bat2Index, value: surplusPerBattery });
+        }
       }
       
       // Export to grid if batteries not charging
-      if (energyFlow.battery1Direction !== 'charging' && energyFlow.battery2Direction !== 'charging') {
+      if (!chargingBat1 && !chargingBat2) {
         links.push({ source: pvIndex, target: gridIndex, value: surplusW });
       }
     }
@@ -338,7 +355,7 @@ function buildDrillDownSankey(
     
     // From batteries if discharging
     if (energyFlow.battery1Direction === 'discharging') {
-      const fromBat1 = Math.min(remainingDeficit / 2, 10000);
+      const fromBat1 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05) {
         validChildren.forEach((child, i) => {
           if (child.powerW > 0) {
@@ -351,7 +368,7 @@ function buildDrillDownSankey(
     }
     
     if (energyFlow.battery2Direction === 'discharging') {
-      const fromBat2 = Math.min(remainingDeficit / 2, 10000);
+      const fromBat2 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05) {
         validChildren.forEach((child, i) => {
           if (child.powerW > 0) {
