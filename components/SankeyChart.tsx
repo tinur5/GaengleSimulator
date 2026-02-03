@@ -21,9 +21,11 @@ const MAX_DESKTOP_HEIGHT = 600;
 // Calculate dynamic height based on number of nodes
 const calculateHeight = (nodeCount: number, containerWidth: number, minHeight: number) => {
   const isMobile = containerWidth < MOBILE_BREAKPOINT;
+  // Use default if nodeCount is 0 or invalid
+  const effectiveNodeCount = nodeCount > 0 ? nodeCount : DEFAULT_NODE_COUNT;
   // Base calculation: each node needs approximately 40-60px of vertical space
   const nodeSpacing = isMobile ? MOBILE_NODE_SPACING : DESKTOP_NODE_SPACING;
-  const baseHeight = Math.max(minHeight, nodeCount * nodeSpacing);
+  const baseHeight = Math.max(minHeight, effectiveNodeCount * nodeSpacing);
   // Add some padding for margins
   const calculatedHeight = baseHeight + VERTICAL_PADDING;
   // Cap at a reasonable maximum to prevent extremely tall diagrams
@@ -42,7 +44,7 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
     const updateDimensions = () => {
       if (ref.current) {
         const containerWidth = ref.current.offsetWidth;
-        const nodeCount = data?.nodes?.length || DEFAULT_NODE_COUNT;
+        const nodeCount = data?.nodes?.length || 0;
         const calculatedHeight = calculateHeight(nodeCount, containerWidth, minHeight);
         setDimensions({
           width: containerWidth || width,
