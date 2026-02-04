@@ -28,7 +28,7 @@ export default function InfoTooltip({ text, className = '' }: InfoTooltipProps) 
         </button>
         {/* Desktop tooltip - hidden on mobile */}
         {isVisible && (
-          <div className="hidden md:block absolute z-50 w-64 p-2 mt-1 text-xs bg-gray-900 text-white rounded shadow-lg left-0 top-full">
+          <div role="tooltip" className="hidden md:block absolute z-50 w-64 p-2 mt-1 text-xs bg-gray-900 text-white rounded shadow-lg left-0 top-full">
             {text}
             <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 transform rotate-45"></div>
           </div>
@@ -38,15 +38,18 @@ export default function InfoTooltip({ text, className = '' }: InfoTooltipProps) 
       {/* Mobile modal - shown only on mobile */}
       {isVisible && (
         <div 
+          role="dialog"
+          aria-modal="true"
           className="md:hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
           onClick={() => setIsVisible(false)}
         >
           <div 
             className="bg-white rounded-lg shadow-xl max-w-sm w-full p-4"
             onClick={(e) => e.stopPropagation()}
+            aria-labelledby="modal-title"
           >
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-sm font-bold text-gray-900">Information</h3>
+              <h3 id="modal-title" className="text-sm font-bold text-gray-900">Information</h3>
               <button
                 onClick={() => setIsVisible(false)}
                 className="text-gray-500 hover:text-gray-700"
