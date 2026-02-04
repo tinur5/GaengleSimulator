@@ -207,16 +207,8 @@ export default function Dashboard() {
     batteryCapacity: number, 
     inverterId: number // 1 or 2
   ) => {
-    // Optimierte Energiemanagement-Parameter
-    const config = {
-      minSoc: 12,
-      maxSoc: 95,
-      targetNightSoc: 65,
-      maxChargeRate: 10,
-      maxDischargeRate: 6,
-      nightStart: 21,
-      nightEnd: 6,
-    };
+    // Use the selected optimization strategy config
+    const config = strategyConfig;
 
     
     // Starte Simulation am Vortag um 00:00, um kontinuierlichen Batteriezustand zu haben
