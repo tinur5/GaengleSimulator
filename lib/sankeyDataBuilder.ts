@@ -355,8 +355,6 @@ function buildDrillDownSankey(
     const isSharedBranch = focusNode.id === 'shared' || focusNode.id.startsWith('shared_');
     const isApartmentsBranch = focusNode.id === 'apartments' || focusNode.id.startsWith('apartment_');
     
-    // Calculate total deficit after PV
-    const pvToConsumption = Math.min(pvAvailableW, totalConsumptionW);
     let remainingDeficit = deficitW;
     
     // Battery 1 supplies ONLY if this is shared branch
