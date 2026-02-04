@@ -59,8 +59,8 @@ export default function Dashboard() {
   const [liveMode, setLiveMode] = useState<LiveModeState>(DEFAULT_LIVE_MODE_STATE);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Control bar collapse state for mobile - starts expanded for better UX
-  const [isControlBarExpanded, setIsControlBarExpanded] = useState<boolean>(true);
+  // Control bar collapse state for mobile - starts collapsed by default for mobile optimization
+  const [isControlBarExpanded, setIsControlBarExpanded] = useState<boolean>(false);
   
   // Hierarchical consumer structure state
   const [sankeyFocusNodeId, setSankeyFocusNodeId] = useState<string | null>(null);
@@ -470,11 +470,9 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Collapsible controls section */}
-          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} px-4 pb-4`}>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            
-            <div className="flex gap-4">
+          {/* Date and Time controls - always visible for mobile optimization */}
+          <div className="mt-4 px-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">DATUM</label>
                 <input
@@ -501,10 +499,9 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          </div>
-          
-          {/* Optimization and Live Mode Controls */}
-          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} border-t border-gray-200 pt-3 px-4 pb-4`}>
+
+          {/* Collapsible advanced controls section */}
+          <div className={`${isControlBarExpanded ? 'block' : 'hidden'} border-t border-gray-200 mt-4 pt-3 px-4 pb-4`}>
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Strategy Selection */}
               <div className="flex-1">
