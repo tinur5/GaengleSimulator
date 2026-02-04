@@ -69,7 +69,7 @@ export default function CostOverview({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-green-700">
-            ~CHF {monthlyCost.totalCostCHF.toFixed(2)}/Monat
+            Netto: ~CHF {monthlyCost.netCostCHF.toFixed(2)}/Monat
           </span>
           <span className="text-xs font-medium text-gray-700">
             {isExpanded ? '▼ Schließen' : '▶ Öffnen'}
@@ -86,8 +86,11 @@ export default function CostOverview({
             </h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Kostenaufschlüsselung */}
+              {/* AUSGABEN (Expenses) */}
               <div className="space-y-2">
+                <h5 className="font-bold text-xs text-red-800 mb-2 flex items-center gap-1">
+                  📤 AUSGABEN (Kosten)
+                </h5>
                 <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
                   <span className="text-sm">Energiekosten:</span>
                   <span className="font-bold text-blue-700">
@@ -106,37 +109,82 @@ export default function CostOverview({
                     CHF {monthlyCost.fixedCostCHF.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-green-100 rounded border-2 border-green-300">
-                  <span className="font-bold text-sm">Total (inkl. 8.1% MwSt.):</span>
-                  <span className="font-bold text-lg text-green-700">
+                <div className="flex justify-between items-center p-2 bg-red-100 rounded border-2 border-red-300">
+                  <span className="font-bold text-sm">Total Ausgaben:</span>
+                  <span className="font-bold text-lg text-red-700">
                     CHF {monthlyCost.totalCostCHF.toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              {/* Energiemengen */}
+              {/* EINNAHMEN (Income) */}
               <div className="space-y-2">
+                <h5 className="font-bold text-xs text-green-800 mb-2 flex items-center gap-1">
+                  📥 EINNAHMEN (Vergütung)
+                </h5>
+                <div className="flex justify-between items-center p-2 bg-green-50 rounded">
+                  <span className="text-sm">Einspeisevergütung:</span>
+                  <span className="font-bold text-green-700">
+                    CHF {monthlyCost.feedInRevenueCHF.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-green-50 rounded opacity-50">
+                  <span className="text-sm text-gray-400">-</span>
+                  <span className="font-bold text-gray-400">-</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-green-50 rounded opacity-50">
+                  <span className="text-sm text-gray-400">-</span>
+                  <span className="font-bold text-gray-400">-</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-green-100 rounded border-2 border-green-300">
+                  <span className="font-bold text-sm">Total Einnahmen:</span>
+                  <span className="font-bold text-lg text-green-700">
+                    CHF {monthlyCost.feedInRevenueCHF.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* NETTO (Net Cost) */}
+            <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-indigo-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <span className="font-bold text-sm text-indigo-900">💵 NETTO (Ausgaben - Einnahmen):</span>
+                  <p className="text-xs text-indigo-700 mt-1">
+                    Effektive monatliche Kosten inkl. 8.1% MwSt.
+                  </p>
+                </div>
+                <span className="font-bold text-2xl text-indigo-900">
+                  CHF {monthlyCost.netCostCHF.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            
+            {/* Energiemengen */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <h5 className="font-bold text-xs text-gray-800 mb-2">📊 Energiemengen</h5>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="flex justify-between items-center p-2 bg-red-50 rounded">
-                  <span className="text-sm">Netzbezug:</span>
-                  <span className="font-semibold text-red-700">
+                  <span className="text-xs">Netzbezug:</span>
+                  <span className="font-semibold text-xs text-red-700">
                     {monthlyCost.totalImportKwh.toFixed(1)} kWh
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-green-50 rounded">
-                  <span className="text-sm">Einspeisung:</span>
-                  <span className="font-semibold text-green-700">
+                  <span className="text-xs">Einspeisung:</span>
+                  <span className="font-semibold text-xs text-green-700">
                     {monthlyCost.totalExportKwh.toFixed(1)} kWh
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-indigo-50 rounded">
-                  <span className="text-sm">Netto Bezug:</span>
-                  <span className="font-semibold text-indigo-700">
+                  <span className="text-xs">Netto Bezug:</span>
+                  <span className="font-semibold text-xs text-indigo-700">
                     {monthlyCost.netImportKwh.toFixed(1)} kWh
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-purple-50 rounded">
-                  <span className="text-sm">Ø Preis/kWh:</span>
-                  <span className="font-semibold text-purple-700">
+                  <span className="text-xs">Ø Preis/kWh:</span>
+                  <span className="font-semibold text-xs text-purple-700">
                     {(monthlyCost.avgCostPerKwh * 100).toFixed(2)} Rp.
                   </span>
                 </div>
@@ -156,7 +204,25 @@ export default function CostOverview({
               📅 Kosten für {selectedDate.toLocaleDateString('de-CH')}
             </h4>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+              <div className="text-center p-2 bg-red-50 rounded">
+                <div className="text-xs text-gray-600">Ausgaben</div>
+                <div className="font-bold text-red-700">
+                  {((dailyCost.totalCost / 100) + dailyCost.dailyFixedCost).toFixed(2)} CHF
+                </div>
+              </div>
+              <div className="text-center p-2 bg-green-50 rounded">
+                <div className="text-xs text-gray-600">Einnahmen</div>
+                <div className="font-bold text-green-700">
+                  {(dailyCost.totalFeedInRevenue / 100).toFixed(2)} CHF
+                </div>
+              </div>
+              <div className="text-center p-2 bg-indigo-100 rounded border border-indigo-300">
+                <div className="text-xs text-gray-600">Netto</div>
+                <div className="font-bold text-indigo-700">
+                  {(((dailyCost.netCost / 100) + dailyCost.dailyFixedCost)).toFixed(2)} CHF
+                </div>
+              </div>
               <div className="text-center p-2 bg-blue-50 rounded">
                 <div className="text-xs text-gray-600">Energie</div>
                 <div className="font-bold text-blue-700">
@@ -167,18 +233,6 @@ export default function CostOverview({
                 <div className="text-xs text-gray-600">Netz</div>
                 <div className="font-bold text-orange-700">
                   {(dailyCost.totalNetworkCost / 100).toFixed(2)} CHF
-                </div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-xs text-gray-600">Fix (anteilig)</div>
-                <div className="font-bold text-gray-700">
-                  {dailyCost.dailyFixedCost.toFixed(2)} CHF
-                </div>
-              </div>
-              <div className="text-center p-2 bg-green-100 rounded border border-green-300">
-                <div className="text-xs text-gray-600">Total</div>
-                <div className="font-bold text-green-700">
-                  {((dailyCost.totalCost / 100) + dailyCost.dailyFixedCost).toFixed(2)} CHF
                 </div>
               </div>
             </div>
@@ -266,46 +320,79 @@ export default function CostOverview({
                 </div>
               </div>
 
+              {/* Einspeisevergütung */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <h4 className="font-bold text-xs text-green-900 mb-2">
+                  💚 Einspeisevergütung (ab 2025)
+                </h4>
+                <div className="space-y-2 text-xs text-green-800">
+                  <p className="font-semibold">Marktorientierte Vergütung:</p>
+                  <div className="ml-3 space-y-1">
+                    <p>• Mindestvergütung: 6.00 Rp./kWh (gesetzlich garantiert)</p>
+                    <p>• Durchschnitt (EPEX Spot): ~8.50 Rp./kWh (variiert stündlich)</p>
+                    <p>• Variation nach Tageszeit:</p>
+                    <div className="ml-4 space-y-0.5">
+                      <p>- Abendspitze (17-20 Uhr): +30%</p>
+                      <p>- Mittagsspitze (11-14 Uhr): +20%</p>
+                      <p>- Nacht (2-6 Uhr): -20%</p>
+                    </div>
+                  </div>
+                  
+                  <p className="font-semibold mt-2">Wichtig:</p>
+                  <div className="ml-3 space-y-1">
+                    <p>• Basis: EPEX SPOT Swissix</p>
+                    <p>• Nur positive Preise (keine negativen Preise ab 2025)</p>
+                    <p>• Ausgleichszahlung bei Unterschreitung der Mindestvergütung</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Stündliche Kostenaufstellung */}
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                 <h4 className="font-bold text-xs text-purple-900 mb-2">
-                  🕐 Stündliche Kosten (Auswahl)
+                  🕐 Stündliche Kosten & Einnahmen (Auswahl)
                 </h4>
                 <div className="text-xs">
                   <div className="grid grid-cols-1 gap-1 max-h-64 overflow-y-auto">
                     {dailyCost.hourlyDetails
-                      .filter((h, idx) => h.energyImportKwh > 0.01 || idx === currentHour)
+                      .filter((h, idx) => h.energyImportKwh > 0.01 || h.energyExportKwh > 0.01 || idx === currentHour)
                       .map((hourData) => (
                         <div
                           key={hourData.hour}
-                          className={`p-2 rounded flex justify-between items-center ${
+                          className={`p-2 rounded grid grid-cols-7 gap-1 items-center text-[10px] ${
                             hourData.hour === currentHour
                               ? 'bg-purple-200 border border-purple-400 font-bold'
                               : 'bg-white'
                           }`}
                         >
-                          <span className="w-16">
+                          <span className="col-span-1">
                             {String(hourData.hour).padStart(2, '0')}:00
                             {hourData.hour === currentHour && ' 👈'}
                           </span>
-                          <span className="flex-1 text-center">
-                            {hourData.energyImportKwh.toFixed(3)} kWh
+                          <span className="col-span-1 text-right text-red-700">
+                            ↓ {hourData.energyImportKwh.toFixed(2)}
                           </span>
-                          <span className="w-20 text-right text-purple-700">
-                            {hourData.energyPriceRpKwh.toFixed(2)} Rp.
+                          <span className="col-span-1 text-right text-green-700">
+                            ↑ {hourData.energyExportKwh.toFixed(2)}
                           </span>
-                          <span className="w-20 text-right text-orange-700">
-                            {hourData.networkPriceRpKwh.toFixed(2)} Rp.
+                          <span className="col-span-1 text-right text-purple-700">
+                            {hourData.energyPriceRpKwh.toFixed(1)}
                           </span>
-                          <span className="w-24 text-right font-semibold">
-                            {(hourData.totalCost / 100).toFixed(4)} CHF
+                          <span className="col-span-1 text-right text-green-700">
+                            {hourData.feedInPriceRpKwh.toFixed(1)}
+                          </span>
+                          <span className="col-span-1 text-right text-red-700">
+                            -{(hourData.totalCost / 100).toFixed(3)}
+                          </span>
+                          <span className="col-span-1 text-right text-green-700 font-semibold">
+                            +{(hourData.feedInRevenue / 100).toFixed(3)}
                           </span>
                         </div>
                       ))}
                   </div>
                   <div className="mt-2 text-[10px] text-gray-600 bg-white p-2 rounded">
-                    <p><strong>Legende:</strong> Zeit | Bezug | Energiepreis | Netzpreis | Gesamtkosten</p>
-                    <p className="mt-1">Nur Stunden mit Netzbezug oder die aktuelle Stunde werden angezeigt.</p>
+                    <p><strong>Legende:</strong> Zeit | Bezug↓ | Export↑ | Kaufpreis | Verkaufspreis | Ausgaben | Einnahmen</p>
+                    <p className="mt-1">Alle Beträge in kWh bzw. Rp./kWh bzw. CHF. Nur Stunden mit Aktivität werden angezeigt.</p>
                   </div>
                 </div>
               </div>
@@ -316,18 +403,24 @@ export default function CostOverview({
                   📐 Berechnungsmethodik
                 </h4>
                 <div className="space-y-2 text-xs text-gray-700">
-                  <p className="font-semibold">Formel für Gesamtkosten:</p>
+                  <p className="font-semibold">Formel für Nettokosten:</p>
                   <div className="ml-3 space-y-1 font-mono text-[10px] bg-white p-2 rounded">
-                    <p>Energiekosten = Σ(Netzbezug[h] × Energiepreis[h])</p>
-                    <p>Netzkosten = Σ(Netzbezug[h] × Netzpreis)</p>
-                    <p>Fixkosten = (Zählergebühr + Grundgebühr) / 30 Tage</p>
-                    <p>Gesamtkosten = (Energiekosten + Netzkosten + Fixkosten) × 1.081</p>
+                    <p>AUSGABEN:</p>
+                    <p>  Energiekosten = Σ(Netzbezug[h] × Energiepreis[h])</p>
+                    <p>  Netzkosten = Σ(Netzbezug[h] × Netzpreis)</p>
+                    <p>  Fixkosten = (Zählergebühr + Grundgebühr) / 30 Tage</p>
+                    <p>  Total Ausgaben = (Energiekosten + Netzkosten + Fixkosten) × 1.081</p>
+                    <p></p>
+                    <p>EINNAHMEN:</p>
+                    <p>  Einspeisevergütung = Σ(Einspeisung[h] × Vergütung[h]) × 1.081</p>
+                    <p></p>
+                    <p>NETTO = Ausgaben - Einnahmen</p>
                   </div>
                   
                   <p className="font-semibold mt-2">Wichtige Hinweise:</p>
                   <div className="ml-3 space-y-1">
                     <p>• Alle Preise exkl. 8.1% MwSt., wird am Ende aufgeschlagen</p>
-                    <p>• Einspeisung ins Netz wird nicht vergütet (Kundengruppe 2)</p>
+                    <p>• Einspeisevergütung: mind. 6 Rp./kWh, durchschnittlich ~8.50 Rp./kWh</p>
                     <p>• Netzpreise variieren nach Saison (Sommer/Winter)</p>
                     <p>• Energiepreise variieren nach Tarifmodell und Tageszeit</p>
                     <p>• Basis: LKW Liechtenstein Preisblätter 2025</p>

@@ -7,11 +7,13 @@ import {
   LKWTariffType,
   LKWTariffModel,
   NetworkUsageFees,
+  FeedInTariff,
   getTariffModel,
   isHighTariffHour,
   getFlexTariffLevel,
   isWinterMonth,
   NETWORK_USAGE_FEES,
+  FEED_IN_TARIFF,
 } from './lkwTariffs';
 
 export interface HourlyEnergyCost {
@@ -19,14 +21,18 @@ export interface HourlyEnergyCost {
   energyImportKwh: number;      // Netzbezug in kWh
   energyExportKwh: number;      // Einspeisung in kWh
   
-  // Energiekosten (Rappen)
-  energyCost: number;           // Energiekosten
-  networkCost: number;          // Netznutzungskosten
-  totalCost: number;            // Gesamtkosten
+  // Ausgaben/Kosten (Rappen)
+  energyCost: number;           // Energiekosten (Ausgabe)
+  networkCost: number;          // Netznutzungskosten (Ausgabe)
+  totalCost: number;            // Gesamtkosten (Ausgabe)
+  
+  // Einnahmen (Rappen)
+  feedInRevenue: number;        // Einspeisevergütung (Einnahme)
   
   // Details für Transparenz
   energyPriceRpKwh: number;     // Energiepreis in Rp./kWh
   networkPriceRpKwh: number;    // Netzpreis in Rp./kWh
+  feedInPriceRpKwh: number;     // Einspeisevergütung in Rp./kWh
 }
 
 export interface DailyCostSummary {
@@ -37,10 +43,16 @@ export interface DailyCostSummary {
   totalExportKwh: number;       // Gesamt Einspeisung
   netImportKwh: number;         // Netto Netzbezug
   
-  // Kosten (Rappen)
-  totalEnergyCost: number;      // Gesamt Energiekosten
-  totalNetworkCost: number;     // Gesamt Netzkosten
-  totalCost: number;            // Gesamtkosten
+  // Ausgaben (Rappen)
+  totalEnergyCost: number;      // Gesamt Energiekosten (Ausgabe)
+  totalNetworkCost: number;     // Gesamt Netzkosten (Ausgabe)
+  totalCost: number;            // Gesamtkosten (Ausgaben)
+  
+  // Einnahmen (Rappen)
+  totalFeedInRevenue: number;   // Gesamt Einspeisevergütung (Einnahme)
+  
+  // Netto (Ausgaben - Einnahmen)
+  netCost: number;              // Nettokosten (Ausgaben - Einnahmen)
   
   // Monatliche Fixkosten (anteilig)
   dailyFixedCost: number;       // Fixkosten pro Tag (CHF)
@@ -57,11 +69,17 @@ export interface MonthlyCostSummary {
   totalExportKwh: number;
   netImportKwh: number;
   
-  // Kosten (CHF, inkl. MwSt. 8.1%)
-  energyCostCHF: number;        // Energiekosten
-  networkCostCHF: number;       // Netznutzungskosten
-  fixedCostCHF: number;         // Fixkosten (Zähler + Grundgebühr)
-  totalCostCHF: number;         // Gesamtkosten
+  // Ausgaben (CHF, inkl. MwSt. 8.1%)
+  energyCostCHF: number;        // Energiekosten (Ausgabe)
+  networkCostCHF: number;       // Netznutzungskosten (Ausgabe)
+  fixedCostCHF: number;         // Fixkosten (Zähler + Grundgebühr) (Ausgabe)
+  totalCostCHF: number;         // Gesamtkosten (Ausgaben)
+  
+  // Einnahmen (CHF, inkl. MwSt. 8.1%)
+  feedInRevenueCHF: number;     // Einspeisevergütung (Einnahme)
+  
+  // Netto (Ausgaben - Einnahmen)
+  netCostCHF: number;           // Nettokosten (Ausgaben - Einnahmen)
   
   // Ohne MwSt.
   totalCostExclVat: number;
@@ -134,6 +152,37 @@ export function calculateHourlyNetworkPrice(
 }
 
 /**
+ * Berechnet Einspeisevergütung für eine Stunde
+ * Basierend auf marktorientierter Vergütung nach EPEX SPOT Swissix
+ * mit gesetzlich garantierter Mindestvergütung von 6 Rp./kWh
+ */
+export function calculateHourlyFeedInPrice(
+  hour: number,
+  feedInTariff: FeedInTariff = FEED_IN_TARIFF
+): number {
+  // In einer echten Implementierung würde man hier stündliche EPEX Spot Preise abrufen
+  // Für die Simulation nutzen wir einen Durchschnittswert mit stündlicher Variation
+  
+  // Variation basierend auf Tageszeit (höhere Preise während Peak-Zeiten)
+  let priceVariation = 1.0;
+  if (hour >= 17 && hour < 20) {
+    // Abendspitze: +30%
+    priceVariation = 1.3;
+  } else if (hour >= 11 && hour < 14) {
+    // Mittagsspitze: +20%
+    priceVariation = 1.2;
+  } else if (hour >= 2 && hour < 6) {
+    // Nacht: -20%
+    priceVariation = 0.8;
+  }
+  
+  const marketPrice = feedInTariff.averageMarketRate * priceVariation;
+  
+  // Gesetzliche Mindestvergütung gilt als Untergrenze
+  return Math.max(marketPrice, feedInTariff.minimumRate);
+}
+
+/**
  * Berechnet Kosten für eine einzelne Stunde
  */
 export function calculateHourlyCost(
@@ -153,10 +202,16 @@ export function calculateHourlyCost(
   // Netznutzungspreis (Rp./kWh)
   const networkPriceRpKwh = calculateHourlyNetworkPrice(month);
   
-  // Kosten berechnen (nur für Import, Export wird nicht vergütet in diesem Modell)
+  // Einspeisevergütung (Rp./kWh)
+  const feedInPriceRpKwh = calculateHourlyFeedInPrice(hour);
+  
+  // Ausgaben berechnen (nur für Import)
   const energyCost = energyImportKwh * energyPriceRpKwh;
   const networkCost = energyImportKwh * networkPriceRpKwh;
   const totalCost = energyCost + networkCost;
+  
+  // Einnahmen berechnen (für Export)
+  const feedInRevenue = energyExportKwh * feedInPriceRpKwh;
   
   return {
     hour,
@@ -165,8 +220,10 @@ export function calculateHourlyCost(
     energyCost,
     networkCost,
     totalCost,
+    feedInRevenue,
     energyPriceRpKwh,
     networkPriceRpKwh,
+    feedInPriceRpKwh,
   };
 }
 
@@ -189,6 +246,7 @@ export function calculateDailyCost(
   let totalExportKwh = 0;
   let totalEnergyCost = 0;
   let totalNetworkCost = 0;
+  let totalFeedInRevenue = 0;
   
   for (let hour = 0; hour < 24; hour++) {
     const importKwh = hourlyImports[hour] || 0;
@@ -209,9 +267,11 @@ export function calculateDailyCost(
     totalExportKwh += exportKwh;
     totalEnergyCost += hourlyCost.energyCost;
     totalNetworkCost += hourlyCost.networkCost;
+    totalFeedInRevenue += hourlyCost.feedInRevenue;
   }
   
   const totalCost = totalEnergyCost + totalNetworkCost;
+  const netCost = totalCost - totalFeedInRevenue;
   const netImportKwh = totalImportKwh - totalExportKwh;
   
   // Fixkosten pro Tag (Zähler + Grundgebühr)
@@ -225,6 +285,8 @@ export function calculateDailyCost(
     totalEnergyCost,
     totalNetworkCost,
     totalCost,
+    totalFeedInRevenue,
+    netCost,
     dailyFixedCost,
     hourlyDetails,
   };
@@ -242,12 +304,14 @@ export function calculateMonthlyCost(
   let totalExportKwh = 0;
   let totalEnergyCostRp = 0;
   let totalNetworkCostRp = 0;
+  let totalFeedInRevenueRp = 0;
   
   for (const daily of dailyCosts) {
     totalImportKwh += daily.totalImportKwh;
     totalExportKwh += daily.totalExportKwh;
     totalEnergyCostRp += daily.totalEnergyCost;
     totalNetworkCostRp += daily.totalNetworkCost;
+    totalFeedInRevenueRp += daily.totalFeedInRevenue;
   }
   
   const netImportKwh = totalImportKwh - totalExportKwh;
@@ -255,6 +319,7 @@ export function calculateMonthlyCost(
   // Konvertiere Rappen zu CHF
   const energyCostCHF = totalEnergyCostRp / 100;
   const networkCostCHF = totalNetworkCostRp / 100;
+  const feedInRevenueCHF = totalFeedInRevenueRp / 100;
   
   // Fixkosten (Zähler + Grundgebühr)
   const fixedCostCHF = NETWORK_USAGE_FEES.meterFee + NETWORK_USAGE_FEES.basicFee;
@@ -264,6 +329,10 @@ export function calculateMonthlyCost(
   
   // Mit MwSt.
   const totalCostCHF = totalCostExclVat * (1 + VAT_RATE);
+  const feedInRevenueCHFWithVat = feedInRevenueCHF * (1 + VAT_RATE);
+  
+  // Nettokosten (Ausgaben - Einnahmen)
+  const netCostCHF = totalCostCHF - feedInRevenueCHFWithVat;
   
   // Durchschnittspreis pro kWh
   const avgCostPerKwh = totalImportKwh > 0 ? (totalCostCHF / totalImportKwh) : 0;
@@ -278,6 +347,8 @@ export function calculateMonthlyCost(
     networkCostCHF: networkCostCHF * (1 + VAT_RATE),
     fixedCostCHF,
     totalCostCHF,
+    feedInRevenueCHF: feedInRevenueCHFWithVat,
+    netCostCHF,
     totalCostExclVat,
     avgCostPerKwh,
   };
@@ -299,10 +370,15 @@ export function estimateMonthlyCostFromDay(
   
   const energyCostCHF = (dailyCost.totalEnergyCost / 100) * daysInMonth;
   const networkCostCHF = (dailyCost.totalNetworkCost / 100) * daysInMonth;
+  const feedInRevenueCHF = (dailyCost.totalFeedInRevenue / 100) * daysInMonth;
   const fixedCostCHF = NETWORK_USAGE_FEES.meterFee + NETWORK_USAGE_FEES.basicFee;
   
   const totalCostExclVat = energyCostCHF + networkCostCHF + fixedCostCHF;
   const totalCostCHF = totalCostExclVat * (1 + VAT_RATE);
+  const feedInRevenueCHFWithVat = feedInRevenueCHF * (1 + VAT_RATE);
+  
+  // Nettokosten (Ausgaben - Einnahmen)
+  const netCostCHF = totalCostCHF - feedInRevenueCHFWithVat;
   
   const avgCostPerKwh = totalImportKwh > 0 ? (totalCostCHF / totalImportKwh) : 0;
   
@@ -316,6 +392,8 @@ export function estimateMonthlyCostFromDay(
     networkCostCHF: networkCostCHF * (1 + VAT_RATE),
     fixedCostCHF,
     totalCostCHF,
+    feedInRevenueCHF: feedInRevenueCHFWithVat,
+    netCostCHF,
     totalCostExclVat,
     avgCostPerKwh,
   };
