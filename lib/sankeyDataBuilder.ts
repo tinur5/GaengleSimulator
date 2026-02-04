@@ -176,52 +176,49 @@ function buildRootLevelSankey(
   }
   
   // Deficit: from batteries or grid
+  // Battery 1 (inverterId: 1) supplies ONLY shared (Allgemeinteil)
+  // Battery 2 (inverterId: 2) supplies ONLY apartments (Wohnungen)
   if (deficitW > 0) {
-    let remainingDeficit = deficitW;
+    let sharedDeficit = sharedNode?.powerW || 0;
+    let apartmentsDeficit = apartmentsNode?.powerW || 0;
     
-    // From batteries if discharging
-    if (energyFlow.battery1Direction === 'discharging') {
-      const fromBat1 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
-      if (fromBat1 > 0.05) {
-        // Battery to consumers
-        if (apartmentsNode && apartmentsNode.powerW > 0) {
-          const share = (apartmentsNode.powerW / totalConsumptionW) * fromBat1;
-          links.push({ source: bat1Index, target: apartmentsIndex, value: share });
-        }
-        if (sharedNode && sharedNode.powerW > 0) {
-          const share = (sharedNode.powerW / totalConsumptionW) * fromBat1;
-          links.push({ source: bat1Index, target: sharedIndex, value: share });
-        }
-        remainingDeficit -= fromBat1;
+    // Subtract PV contribution that was already allocated
+    const pvToConsumption = Math.min(pvAvailableW, totalConsumptionW);
+    if (totalConsumptionW > 0) {
+      if (sharedNode && sharedNode.powerW > 0) {
+        const sharedPvShare = (sharedNode.powerW / totalConsumptionW) * pvToConsumption;
+        sharedDeficit = Math.max(0, sharedDeficit - sharedPvShare);
+      }
+      if (apartmentsNode && apartmentsNode.powerW > 0) {
+        const apartmentsPvShare = (apartmentsNode.powerW / totalConsumptionW) * pvToConsumption;
+        apartmentsDeficit = Math.max(0, apartmentsDeficit - apartmentsPvShare);
       }
     }
     
-    if (energyFlow.battery2Direction === 'discharging') {
-      const fromBat2 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
-      if (fromBat2 > 0.05) {
-        // Battery to consumers
-        if (apartmentsNode && apartmentsNode.powerW > 0) {
-          const share = (apartmentsNode.powerW / totalConsumptionW) * fromBat2;
-          links.push({ source: bat2Index, target: apartmentsIndex, value: share });
-        }
-        if (sharedNode && sharedNode.powerW > 0) {
-          const share = (sharedNode.powerW / totalConsumptionW) * fromBat2;
-          links.push({ source: bat2Index, target: sharedIndex, value: share });
-        }
-        remainingDeficit -= fromBat2;
+    // Battery 1 supplies ONLY shared area
+    if (energyFlow.battery1Direction === 'discharging' && sharedDeficit > 0) {
+      const fromBat1 = Math.min(sharedDeficit, MAX_BATTERY_DISCHARGE_W);
+      if (fromBat1 > 0.05 && sharedNode) {
+        links.push({ source: bat1Index, target: sharedIndex, value: fromBat1 });
+        sharedDeficit -= fromBat1;
+      }
+    }
+    
+    // Battery 2 supplies ONLY apartments
+    if (energyFlow.battery2Direction === 'discharging' && apartmentsDeficit > 0) {
+      const fromBat2 = Math.min(apartmentsDeficit, MAX_BATTERY_DISCHARGE_W);
+      if (fromBat2 > 0.05 && apartmentsNode) {
+        links.push({ source: bat2Index, target: apartmentsIndex, value: fromBat2 });
+        apartmentsDeficit -= fromBat2;
       }
     }
     
     // Remaining deficit from grid
-    if (remainingDeficit > 0.05) {
-      if (apartmentsNode && apartmentsNode.powerW > 0) {
-        const share = (apartmentsNode.powerW / totalConsumptionW) * remainingDeficit;
-        links.push({ source: gridIndex, target: apartmentsIndex, value: share });
-      }
-      if (sharedNode && sharedNode.powerW > 0) {
-        const share = (sharedNode.powerW / totalConsumptionW) * remainingDeficit;
-        links.push({ source: gridIndex, target: sharedIndex, value: share });
-      }
+    if (sharedDeficit > 0.05 && sharedNode) {
+      links.push({ source: gridIndex, target: sharedIndex, value: sharedDeficit });
+    }
+    if (apartmentsDeficit > 0.05 && apartmentsNode) {
+      links.push({ source: gridIndex, target: apartmentsIndex, value: apartmentsDeficit });
     }
   }
   
@@ -350,12 +347,19 @@ function buildDrillDownSankey(
   }
   
   // Deficit: from batteries or grid
+  // Determine which battery should supply based on the focus node
+  // Battery 1 (inverterId: 1) supplies ONLY shared (Allgemeinteil)
+  // Battery 2 (inverterId: 2) supplies ONLY apartments (Wohnungen)
   if (deficitW > 0) {
+    // Determine if this is a shared or apartments branch
+    const isSharedBranch = focusNode.id === 'shared' || focusNode.id.startsWith('shared_');
+    const isApartmentsBranch = focusNode.id === 'apartments' || focusNode.id.startsWith('apartment_');
+    
     let remainingDeficit = deficitW;
     
-    // From batteries if discharging
-    if (energyFlow.battery1Direction === 'discharging') {
-      const fromBat1 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
+    // Battery 1 supplies ONLY if this is shared branch
+    if (isSharedBranch && energyFlow.battery1Direction === 'discharging') {
+      const fromBat1 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05) {
         validChildren.forEach((child, i) => {
           if (child.powerW > 0) {
@@ -367,8 +371,9 @@ function buildDrillDownSankey(
       }
     }
     
-    if (energyFlow.battery2Direction === 'discharging') {
-      const fromBat2 = Math.min(remainingDeficit / 2, MAX_BATTERY_DISCHARGE_W);
+    // Battery 2 supplies ONLY if this is apartments branch
+    if (isApartmentsBranch && energyFlow.battery2Direction === 'discharging') {
+      const fromBat2 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05) {
         validChildren.forEach((child, i) => {
           if (child.powerW > 0) {
