@@ -144,6 +144,22 @@ export const NETWORK_USAGE_FEES: NetworkUsageFees = {
 };
 
 /**
+ * Einspeisevergütung (Feed-in Tariff) für PV-Strom ab 2025
+ * Basierend auf marktorientierter Vergütung nach EPEX SPOT Swissix
+ */
+export interface FeedInTariff {
+  minimumRate: number;  // Gesetzlich garantierte Mindestvergütung (Rp./kWh)
+  averageMarketRate: number; // Durchschnittlicher Marktpreis (variiert stündlich)
+  description: string;
+}
+
+export const FEED_IN_TARIFF: FeedInTariff = {
+  minimumRate: 6.00,     // Rp./kWh - Mindestvergütung gem. Art. 13a EEV
+  averageMarketRate: 8.50, // Rp./kWh - Durchschnitt EPEX Spot (variiert stündlich)
+  description: 'Marktorientierte Vergütung nach EPEX SPOT Swissix, mind. 6 Rp./kWh'
+};
+
+/**
  * Alle verfügbaren Tarifmodelle
  */
 export const ALL_TARIFF_MODELS: Record<LKWTariffType, LKWTariffModel> = {
