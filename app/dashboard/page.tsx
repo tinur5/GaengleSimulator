@@ -20,6 +20,8 @@ import { APP_VERSION } from '../../lib/version';
 import { buildConsumerTree, TenantConsumptionData, CommonAreaData } from '../../lib/consumerTreeBuilder';
 import { buildSankeyData, EnergyFlowData, getBreadcrumbPath } from '../../lib/sankeyDataBuilder';
 import { ConsumerNode } from '../../lib/consumerHierarchy';
+import { LKWTariffType, getAllTariffModels } from '../../lib/lkwTariffs';
+import CostOverview from '../../components/CostOverview';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -48,6 +50,10 @@ export default function Dashboard() {
   // Optimization strategy state
   const [selectedStrategy, setSelectedStrategy] = useState<OptimizationStrategyType>('balanced');
   const [aiOptimizationEnabled, setAiOptimizationEnabled] = useState<boolean>(true);
+  
+  // Tariff model state
+  const [selectedTariff, setSelectedTariff] = useState<LKWTariffType>('classic');
+  const [useEcoTariff, setUseEcoTariff] = useState<boolean>(false);
   
   // Live mode state
   const [liveMode, setLiveMode] = useState<LiveModeState>(DEFAULT_LIVE_MODE_STATE);
@@ -207,16 +213,8 @@ export default function Dashboard() {
     batteryCapacity: number, 
     inverterId: number // 1 or 2
   ) => {
-    // Optimierte Energiemanagement-Parameter
-    const config = {
-      minSoc: 12,
-      maxSoc: 95,
-      targetNightSoc: 65,
-      maxChargeRate: 10,
-      maxDischargeRate: 6,
-      nightStart: 21,
-      nightEnd: 6,
-    };
+    // Use the selected optimization strategy config
+    const config = strategyConfig;
 
     
     // Starte Simulation am Vortag um 00:00, um kontinuierlichen Batteriezustand zu haben
@@ -384,6 +382,65 @@ export default function Dashboard() {
     return { pvData, consumptionData, socData };
   }, [building.pvPeakKw, building.efficiency, month, dayOfWeek, selectedDate, tenants]);
 
+  // Calculate hourly grid import/export for cost calculations
+  const { hourlyImports, hourlyExports } = useMemo(() => {
+    const imports: number[] = [];
+    const exports: number[] = [];
+    
+    for (let hour = 0; hour < 24; hour++) {
+      const pv = pvData[hour];
+      const consumption = consumptionData[hour];
+      const netFlow = pv - consumption;
+      
+      // Calculate battery state and behavior for this hour
+      const bat1Soc = calculateHourlySoc(selectedDate, hour, 20, 1);
+      const bat2Soc = calculateHourlySoc(selectedDate, hour, 20, 2);
+      const avgSocAtHour = (bat1Soc + bat2Soc) / 2;
+      
+      // Determine if battery is charging, discharging, or idle
+      const config = strategyConfig;
+      const isNight = hour >= config.nightStart || hour < config.nightEnd;
+      
+      let gridImport = 0;
+      let gridExport = 0;
+      
+      if (netFlow > 0.05) {
+        // PV surplus
+        if (avgSocAtHour < config.maxSoc) {
+          // Battery can charge - calculate how much goes to grid
+          const maxBatteryCharge = config.maxChargeRate;
+          const batteryCharge = Math.min(netFlow, maxBatteryCharge);
+          const surplus = netFlow - batteryCharge;
+          gridExport = Math.max(0, surplus);
+        } else {
+          // Battery full - all surplus to grid
+          gridExport = netFlow;
+        }
+      } else if (netFlow < -0.05) {
+        // PV deficit
+        const deficit = Math.abs(netFlow);
+        const shouldUseBattery = isNight 
+          ? avgSocAtHour > config.targetNightSoc 
+          : avgSocAtHour > config.minSoc;
+        
+        if (shouldUseBattery) {
+          const maxBatteryDischarge = config.maxDischargeRate;
+          const batteryDischarge = Math.min(deficit, maxBatteryDischarge);
+          const remainingDeficit = deficit - batteryDischarge;
+          gridImport = Math.max(0, remainingDeficit);
+        } else {
+          // Battery protected - all from grid
+          gridImport = deficit;
+        }
+      }
+      
+      imports.push(gridImport);
+      exports.push(gridExport);
+    }
+    
+    return { hourlyImports: imports, hourlyExports: exports };
+  }, [pvData, consumptionData, selectedDate, strategyConfig]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="sticky top-0 z-50 bg-white shadow-lg">
@@ -539,6 +596,41 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+              
+              {/* Tariff Model Selection */}
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-600 mb-2">
+                  💰 TARIFMODELL (LKW)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {getAllTariffModels().map(tariff => (
+                    <button
+                      key={tariff.type}
+                      onClick={() => setSelectedTariff(tariff.type)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        selectedTariff === tariff.type
+                          ? 'bg-green-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title={tariff.description}
+                    >
+                      {tariff.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="ecoTariff"
+                    checked={useEcoTariff}
+                    onChange={(e) => setUseEcoTariff(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="ecoTariff" className="text-xs text-gray-600">
+                    🌿 Naturstrom (+5 Rp./kWh)
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -576,6 +668,15 @@ export default function Dashboard() {
           strategyConfig={strategyConfig}
           inverterPowerKw={building.inverterPowerKw}
           pvPeakKw={building.pvPeakKw}
+        />
+
+        {/* Cost Overview */}
+        <CostOverview
+          selectedDate={selectedDate}
+          hourlyImports={hourlyImports}
+          hourlyExports={hourlyExports}
+          selectedTariff={selectedTariff}
+          useEco={useEcoTariff}
         />
 
         {/* Strategy Info Banner */}
