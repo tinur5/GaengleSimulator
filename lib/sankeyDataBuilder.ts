@@ -98,6 +98,13 @@ function buildRootLevelSankey(
   const gridIndex = nodes.length;
   nodes.push({ id: 'grid', name: 'Netz', source: 'grid' });
   
+  // Inverters (Wechselrichter)
+  const wr1Index = nodes.length;
+  nodes.push({ id: 'wr1', name: 'WR1', source: 'inverter' });
+  
+  const wr2Index = nodes.length;
+  nodes.push({ id: 'wr2', name: 'WR2', source: 'inverter' });
+  
   // Consumer groups
   const apartmentsNode = consumerTree.children.find(c => c.id === 'apartments');
   const sharedNode = consumerTree.children.find(c => c.id === 'shared');
@@ -132,22 +139,26 @@ function buildRootLevelSankey(
   const deficitW = Math.max(0, totalConsumptionW - pvAvailableW);
   const surplusW = Math.max(0, pvAvailableW - totalConsumptionW);
   
-  // PV flows
+  // PV flows through inverters
   if (pvAvailableW > 0) {
     const pvToConsumption = Math.min(pvAvailableW, totalConsumptionW);
     
-    // Distribute PV to consumers proportionally
+    // PV flows to inverters proportionally to their consumers
     if (apartmentsNode && apartmentsNode.powerW > 0) {
       const apartmentShare = (apartmentsNode.powerW / totalConsumptionW) * pvToConsumption;
       if (apartmentShare > 0.05) {
-        links.push({ source: pvIndex, target: apartmentsIndex, value: apartmentShare });
+        // PV -> WR2 -> Apartments
+        links.push({ source: pvIndex, target: wr2Index, value: apartmentShare });
+        links.push({ source: wr2Index, target: apartmentsIndex, value: apartmentShare });
       }
     }
     
     if (sharedNode && sharedNode.powerW > 0) {
       const sharedShare = (sharedNode.powerW / totalConsumptionW) * pvToConsumption;
       if (sharedShare > 0.05) {
-        links.push({ source: pvIndex, target: sharedIndex, value: sharedShare });
+        // PV -> WR1 -> Shared
+        links.push({ source: pvIndex, target: wr1Index, value: sharedShare });
+        links.push({ source: wr1Index, target: sharedIndex, value: sharedShare });
       }
     }
     
@@ -195,30 +206,38 @@ function buildRootLevelSankey(
       }
     }
     
-    // Battery 1 supplies ONLY shared area
+    // Battery 1 supplies ONLY shared area through WR1
     if (energyFlow.battery1Direction === 'discharging' && sharedDeficit > 0) {
       const fromBat1 = Math.min(sharedDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05 && sharedNode) {
-        links.push({ source: bat1Index, target: sharedIndex, value: fromBat1 });
+        // Bat1 -> WR1 -> Shared
+        links.push({ source: bat1Index, target: wr1Index, value: fromBat1 });
+        links.push({ source: wr1Index, target: sharedIndex, value: fromBat1 });
         sharedDeficit -= fromBat1;
       }
     }
     
-    // Battery 2 supplies ONLY apartments
+    // Battery 2 supplies ONLY apartments through WR2
     if (energyFlow.battery2Direction === 'discharging' && apartmentsDeficit > 0) {
       const fromBat2 = Math.min(apartmentsDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05 && apartmentsNode) {
-        links.push({ source: bat2Index, target: apartmentsIndex, value: fromBat2 });
+        // Bat2 -> WR2 -> Apartments
+        links.push({ source: bat2Index, target: wr2Index, value: fromBat2 });
+        links.push({ source: wr2Index, target: apartmentsIndex, value: fromBat2 });
         apartmentsDeficit -= fromBat2;
       }
     }
     
-    // Remaining deficit from grid
+    // Remaining deficit from grid through inverters
     if (sharedDeficit > 0.05 && sharedNode) {
-      links.push({ source: gridIndex, target: sharedIndex, value: sharedDeficit });
+      // Grid -> WR1 -> Shared
+      links.push({ source: gridIndex, target: wr1Index, value: sharedDeficit });
+      links.push({ source: wr1Index, target: sharedIndex, value: sharedDeficit });
     }
     if (apartmentsDeficit > 0.05 && apartmentsNode) {
-      links.push({ source: gridIndex, target: apartmentsIndex, value: apartmentsDeficit });
+      // Grid -> WR2 -> Apartments
+      links.push({ source: gridIndex, target: wr2Index, value: apartmentsDeficit });
+      links.push({ source: wr2Index, target: apartmentsIndex, value: apartmentsDeficit });
     }
   }
   
@@ -275,6 +294,13 @@ function buildDrillDownSankey(
   const gridIndex = nodes.length;
   nodes.push({ id: 'grid', name: 'Netz', source: 'grid' });
   
+  // Inverters (Wechselrichter)
+  const wr1Index = nodes.length;
+  nodes.push({ id: 'wr1', name: 'WR1', source: 'inverter' });
+  
+  const wr2Index = nodes.length;
+  nodes.push({ id: 'wr2', name: 'WR2', source: 'inverter' });
+  
   // Add child nodes
   const childStartIndex = nodes.length;
   const validChildren = children.filter(child => !(!showAssumptions && child.source === 'assumed'));
@@ -305,23 +331,51 @@ function buildDrillDownSankey(
   const deficitW = Math.max(0, totalConsumptionW - pvAvailableW);
   const surplusW = Math.max(0, pvAvailableW - totalConsumptionW);
   
-  // PV flows to children
+  // PV flows to children through inverters
   if (pvAvailableW > 0) {
     const pvToConsumption = Math.min(pvAvailableW, totalConsumptionW);
     
-    // Distribute PV to children proportionally
-    validChildren.forEach((child, i) => {
-      if (child.powerW > 0) {
-        const childShare = (child.powerW / totalConsumptionW) * pvToConsumption;
-        if (childShare > 0.05) {
-          links.push({ 
-            source: pvIndex, 
-            target: childStartIndex + i, 
-            value: childShare 
-          });
-        }
+    // Determine which inverter to use based on branch
+    const isSharedBranch = focusNode.id === 'shared' || focusNode.id.startsWith('shared_');
+    const isApartmentsBranch = focusNode.id === 'apartments' || focusNode.id.startsWith('apartment_');
+    
+    // Route through appropriate inverter
+    if (isSharedBranch || isApartmentsBranch) {
+      const inverterIndex = isSharedBranch ? wr1Index : wr2Index;
+      
+      // PV -> Inverter
+      if (pvToConsumption > 0.05) {
+        links.push({ source: pvIndex, target: inverterIndex, value: pvToConsumption });
       }
-    });
+      
+      // Inverter -> Children (distribute proportionally)
+      validChildren.forEach((child, i) => {
+        if (child.powerW > 0) {
+          const childShare = (child.powerW / totalConsumptionW) * pvToConsumption;
+          if (childShare > 0.05) {
+            links.push({ 
+              source: inverterIndex, 
+              target: childStartIndex + i, 
+              value: childShare 
+            });
+          }
+        }
+      });
+    } else {
+      // For other branches (not typical, but fallback), distribute directly
+      validChildren.forEach((child, i) => {
+        if (child.powerW > 0) {
+          const childShare = (child.powerW / totalConsumptionW) * pvToConsumption;
+          if (childShare > 0.05) {
+            links.push({ 
+              source: pvIndex, 
+              target: childStartIndex + i, 
+              value: childShare 
+            });
+          }
+        }
+      });
+    }
     
     // PV surplus to batteries or grid (only show if surplus exists)
     if (surplusW > 0) {
@@ -357,42 +411,62 @@ function buildDrillDownSankey(
     
     let remainingDeficit = deficitW;
     
-    // Battery 1 supplies ONLY if this is shared branch
+    // Battery 1 supplies ONLY if this is shared branch, through WR1
     if (isSharedBranch && energyFlow.battery1Direction === 'discharging') {
       const fromBat1 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05) {
+        // Bat1 -> WR1
+        links.push({ source: bat1Index, target: wr1Index, value: fromBat1 });
+        // WR1 -> Children
         validChildren.forEach((child, i) => {
           if (child.powerW > 0) {
             const share = (child.powerW / totalConsumptionW) * fromBat1;
-            links.push({ source: bat1Index, target: childStartIndex + i, value: share });
+            links.push({ source: wr1Index, target: childStartIndex + i, value: share });
           }
         });
         remainingDeficit -= fromBat1;
       }
     }
     
-    // Battery 2 supplies ONLY if this is apartments branch
+    // Battery 2 supplies ONLY if this is apartments branch, through WR2
     if (isApartmentsBranch && energyFlow.battery2Direction === 'discharging') {
       const fromBat2 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05) {
+        // Bat2 -> WR2
+        links.push({ source: bat2Index, target: wr2Index, value: fromBat2 });
+        // WR2 -> Children
         validChildren.forEach((child, i) => {
           if (child.powerW > 0) {
             const share = (child.powerW / totalConsumptionW) * fromBat2;
-            links.push({ source: bat2Index, target: childStartIndex + i, value: share });
+            links.push({ source: wr2Index, target: childStartIndex + i, value: share });
           }
         });
         remainingDeficit -= fromBat2;
       }
     }
     
-    // Remaining deficit from grid
+    // Remaining deficit from grid through appropriate inverter
     if (remainingDeficit > 0.05) {
-      validChildren.forEach((child, i) => {
-        if (child.powerW > 0) {
-          const share = (child.powerW / totalConsumptionW) * remainingDeficit;
-          links.push({ source: gridIndex, target: childStartIndex + i, value: share });
-        }
-      });
+      if (isSharedBranch || isApartmentsBranch) {
+        const inverterIndex = isSharedBranch ? wr1Index : wr2Index;
+        // Grid -> Inverter
+        links.push({ source: gridIndex, target: inverterIndex, value: remainingDeficit });
+        // Inverter -> Children
+        validChildren.forEach((child, i) => {
+          if (child.powerW > 0) {
+            const share = (child.powerW / totalConsumptionW) * remainingDeficit;
+            links.push({ source: inverterIndex, target: childStartIndex + i, value: share });
+          }
+        });
+      } else {
+        // Fallback for other branches
+        validChildren.forEach((child, i) => {
+          if (child.powerW > 0) {
+            const share = (child.powerW / totalConsumptionW) * remainingDeficit;
+            links.push({ source: gridIndex, target: childStartIndex + i, value: share });
+          }
+        });
+      }
     }
   }
   

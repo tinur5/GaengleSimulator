@@ -60,58 +60,59 @@ sankeyData.nodes.forEach((node, i) => {
 });
 
 console.log(`\n  Links (${sankeyData.links.length}):`);
-let bat1ToApartments = false;
-let bat1ToShared = false;
-let bat2ToApartments = false;
-let bat2ToShared = false;
+let bat1ToWR1 = false;
+let bat2ToWR2 = false;
+let wr1ToShared = false;
+let wr2ToApartments = false;
 
 sankeyData.links.forEach((link) => {
   const sourceName = sankeyData.nodes[link.source].name;
   const targetName = sankeyData.nodes[link.target].name;
   console.log(`    ${sourceName} -> ${targetName}: ${(link.value / 1000).toFixed(2)}kW`);
   
-  // Check battery connections
-  if (sourceName.startsWith('Bat1') && targetName.startsWith('Wohnungen')) {
-    bat1ToApartments = true;
+  // Check battery -> inverter connections
+  if (sourceName.startsWith('Bat1') && targetName === 'WR1') {
+    bat1ToWR1 = true;
   }
-  if (sourceName.startsWith('Bat1') && targetName.startsWith('Allgemein')) {
-    bat1ToShared = true;
+  if (sourceName.startsWith('Bat2') && targetName === 'WR2') {
+    bat2ToWR2 = true;
   }
-  if (sourceName.startsWith('Bat2') && targetName.startsWith('Wohnungen')) {
-    bat2ToApartments = true;
+  // Check inverter -> consumer connections
+  if (sourceName === 'WR1' && targetName.startsWith('Allgemein')) {
+    wr1ToShared = true;
   }
-  if (sourceName.startsWith('Bat2') && targetName.startsWith('Allgemein')) {
-    bat2ToShared = true;
+  if (sourceName === 'WR2' && targetName.startsWith('Wohnungen')) {
+    wr2ToApartments = true;
   }
 });
 
 // Verify separation
-console.log('\n  Battery Connection Check:');
-console.log(`    Battery 1 -> Apartments: ${bat1ToApartments ? '❌ PRESENT (should NOT exist)' : '✅ ABSENT (correct)'}`);
-console.log(`    Battery 1 -> Shared: ${bat1ToShared ? '✅ PRESENT (correct)' : '❌ ABSENT (should exist)'}`);
-console.log(`    Battery 2 -> Apartments: ${bat2ToApartments ? '✅ PRESENT (correct)' : '❌ ABSENT (should exist)'}`);
-console.log(`    Battery 2 -> Shared: ${bat2ToShared ? '❌ PRESENT (should NOT exist)' : '✅ ABSENT (correct)'}`);
+console.log('\n  Battery-Inverter-Consumer Connection Check:');
+console.log(`    Battery 1 -> WR1: ${bat1ToWR1 ? '✅ PRESENT (correct)' : '❌ ABSENT (should exist)'}`);
+console.log(`    Battery 2 -> WR2: ${bat2ToWR2 ? '✅ PRESENT (correct)' : '❌ ABSENT (should exist)'}`);
+console.log(`    WR1 -> Shared: ${wr1ToShared ? '✅ PRESENT (correct)' : '❌ ABSENT (should exist)'}`);
+console.log(`    WR2 -> Apartments: ${wr2ToApartments ? '✅ PRESENT (correct)' : '❌ ABSENT (should exist)'}`);
 
 // Check if separation is correct
-const separationCorrect = !bat1ToApartments && bat1ToShared && bat2ToApartments && !bat2ToShared;
+const separationCorrect = bat1ToWR1 && bat2ToWR2 && wr1ToShared && wr2ToApartments;
 
 if (separationCorrect) {
-  console.log('\n  ✅ PASS: Battery separation is correct!');
-  console.log('    - Battery 1 only supplies Shared (Allgemeinteil)');
-  console.log('    - Battery 2 only supplies Apartments (Wohnungen)');
+  console.log('\n  ✅ PASS: Battery-Inverter separation is correct!');
+  console.log('    - Battery 1 -> WR1 -> Shared (Allgemeinteil)');
+  console.log('    - Battery 2 -> WR2 -> Apartments (Wohnungen)');
 } else {
-  console.error('\n  ❌ FAIL: Battery separation is incorrect!');
-  if (bat1ToApartments) {
-    console.error('    - Battery 1 should NOT supply Apartments');
+  console.error('\n  ❌ FAIL: Battery-Inverter separation is incorrect!');
+  if (!bat1ToWR1) {
+    console.error('    - Battery 1 should connect to WR1');
   }
-  if (!bat1ToShared) {
-    console.error('    - Battery 1 should supply Shared');
+  if (!bat2ToWR2) {
+    console.error('    - Battery 2 should connect to WR2');
   }
-  if (!bat2ToApartments) {
-    console.error('    - Battery 2 should supply Apartments');
+  if (!wr1ToShared) {
+    console.error('    - WR1 should supply Shared');
   }
-  if (bat2ToShared) {
-    console.error('    - Battery 2 should NOT supply Shared');
+  if (!wr2ToApartments) {
+    console.error('    - WR2 should supply Apartments');
   }
 }
 
@@ -130,9 +131,9 @@ const energyFlow2: EnergyFlowData = {
 
 const sankeyData2 = buildSankeyData(consumerTree, null, energyFlow2, true);
 
-let bat1Supply = false;
+let bat1ToWR1_test2 = false;
 let bat2Supply = false;
-let gridToApartments = false;
+let gridToWR2 = false;
 
 console.log(`  Links (${sankeyData2.links.length}):`);
 sankeyData2.links.forEach((link) => {
@@ -140,17 +141,17 @@ sankeyData2.links.forEach((link) => {
   const targetName = sankeyData2.nodes[link.target].name;
   console.log(`    ${sourceName} -> ${targetName}: ${(link.value / 1000).toFixed(2)}kW`);
   
-  if (sourceName.startsWith('Bat1')) bat1Supply = true;
+  if (sourceName.startsWith('Bat1') && targetName === 'WR1') bat1ToWR1_test2 = true;
   if (sourceName.startsWith('Bat2')) bat2Supply = true;
-  if (sourceName === 'Netz' && targetName.startsWith('Wohnungen')) {
-    gridToApartments = true;
+  if (sourceName === 'Netz' && targetName === 'WR2') {
+    gridToWR2 = true;
   }
 });
 
-if (bat1Supply && !bat2Supply && gridToApartments) {
-  console.log('\n  ✅ PASS: Battery 1 supplies Shared, Grid supplies Apartments');
+if (bat1ToWR1_test2 && !bat2Supply && gridToWR2) {
+  console.log('\n  ✅ PASS: Battery 1 -> WR1 -> Shared, Grid -> WR2 -> Apartments');
 } else {
-  console.error('\n  ❌ FAIL: Expected Battery 1 for Shared and Grid for Apartments');
+  console.error('\n  ❌ FAIL: Expected Battery 1 -> WR1 for Shared and Grid -> WR2 for Apartments');
 }
 
 console.log('\n' + '='.repeat(70));
