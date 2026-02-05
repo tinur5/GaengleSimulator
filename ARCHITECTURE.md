@@ -42,16 +42,18 @@ The GaengleSimulator is a Next.js-based energy management dashboard for the MFH 
 ### System Performance (Annual Simulation Results)
 
 **Building Configuration:**
-- PV System: 66.88 kWp
-- Batteries: 2× 20 kWh = 40 kWh total
+- PV System: 59.8 kWp (Arres 3.2 / Premium L modules)
+- Inverters: 2× Goodwe GW29.9KN-ET (29.9 kW each)
+- Batteries: 2× GoodWe Lynx D - 20.0 kWh = 40 kWh total
 - Annual Consumption: ~43,743 kWh
-- Annual PV Production: ~139,013 kWh
+- Annual PV Production: ~125,000 kWh (estimated based on capacity reduction from 66.88 to 59.8 kWp)
 
 **Optimized Strategy Results:**
-- ✅ **Autarky Rate: 81.4%** (only 18.6% grid dependency)
-- ✅ **Self-Consumption: 25.0%** of PV production used directly
-- ✅ **Grid Import: 8,116 kWh/year** (81% reduction vs. no PV)
-- ⚠️ **Grid Export: 104,203 kWh/year** (surplus to grid)
+(Note: Metrics below are estimates based on proportional capacity adjustment; actual performance may vary)
+- ✅ **Autarky Rate: ~78%** (grid dependency reduced)
+- ✅ **Self-Consumption: ~28%** of PV production used directly
+- ✅ **Grid Import: ~9,600 kWh/year** (78% reduction vs. no PV)
+- ⚠️ **Grid Export: ~90,000 kWh/year** (surplus to grid)
 
 ### Optimization Parameters
 
@@ -109,17 +111,15 @@ The GaengleSimulator is a Next.js-based energy management dashboard for the MFH 
 The Sankey diagram shows real-time energy flows:
 
 ```
-PV (66.88 kW peak)
-  ├─→ WR1 (33.44 kW)
-  │    ├─→ Wohnungen (50%)
-  │    ├─→ Allgemein (50%)
-  │    ├─→ Batterie 1 (if surplus & SOC < 95%)
+PV (59.8 kWp - Arres 3.2 / Premium L)
+  ├─→ WR1 (Goodwe GW29.9KN-ET - 29.9 kW) - Allgemein
+  │    ├─→ Shared Areas (Pool, Heating, etc.)
+  │    ├─→ Batterie 1 (GoodWe Lynx D - 20 kWh, if surplus & SOC < 95%)
   │    └─→ Netz (if battery full)
   │
-  └─→ WR2 (33.44 kW)
-       ├─→ Wohnungen (50%)
-       ├─→ Allgemein (50%)
-       ├─→ Batterie 2 (if surplus & SOC < 95%)
+  └─→ WR2 (Goodwe GW29.9KN-ET - 29.9 kW) - Wohnungen
+       ├─→ Apartments (Graf, Wetli, Bürzle)
+       ├─→ Batterie 2 (GoodWe Lynx D - 20 kWh, if surplus & SOC < 95%)
        └─→ Netz (if battery full)
 
 Netz

@@ -27,14 +27,20 @@ export default function Dashboard() {
   const [building] = useState<Building>({
     id: 1,
     name: 'MFH Gängle 2+4',
-    pvPeakKw: 66.88,
+    pvPeakKw: 59.8, // 2x Goodwe GW29.9KN-ET inverters
+    pvModel: 'Arres 3.2 / Premium L',
+    pvManufacturer: 'Arres',
     capacity: 40,
     efficiency: 0.95,
-    numInverters: 2,
-    inverterPowerKw: 33.44,
+    numInverters: 2, // Kept for backward compatibility
+    inverterPowerKw: 29.9, // Kept for backward compatibility
+    inverters: [
+      { id: 1, model: 'GW29.9KN-ET', manufacturer: 'Goodwe', powerKw: 29.9, efficiency: 0.97 },
+      { id: 2, model: 'GW29.9KN-ET', manufacturer: 'Goodwe', powerKw: 29.9, efficiency: 0.97 },
+    ],
     batteries: [
-      { id: 1, inverterId: 1, capacityKwh: 20, soc: 75 },
-      { id: 2, inverterId: 2, capacityKwh: 20, soc: 65 },
+      { id: 1, inverterId: 1, capacityKwh: 20, soc: 75, model: 'Lynx D - 20.0 kWh', manufacturer: 'GoodWe' },
+      { id: 2, inverterId: 2, capacityKwh: 20, soc: 65, model: 'Lynx D - 20.0 kWh', manufacturer: 'GoodWe' },
     ],
   });
 
@@ -448,7 +454,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">⚡ MFH Gängle 2+4</h1>
-              <p className="text-sm text-gray-600">66.88 kWp PV • 2× 20 kWh Batterien • <span className="text-xs text-gray-500">v{APP_VERSION}</span></p>
+              <p className="text-sm text-gray-600">59.8 kWp PV • 2× 20 kWh Batterien • 2× Goodwe GW29.9KN-ET • <span className="text-xs text-gray-500">v{APP_VERSION}</span></p>
 
             </div>
             <button
@@ -710,7 +716,7 @@ export default function Dashboard() {
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
               ☀️ PV-LEISTUNG
-              <InfoTooltip text="Aktuelle Photovoltaik-Produktionsleistung (kW = Kilowatt) basierend auf Tageszeit, Monat, Wetter und installierter Leistung (66.88 kWp). Berechnet mit realistischen Sonnenauf-/untergangszeiten und Bewölkungsfaktoren. kW ist eine Momentanleistung - über eine Stunde ergibt sich daraus die Energie in kWh (Kilowattstunden)." />
+              <InfoTooltip text="Aktuelle Photovoltaik-Produktionsleistung (kW = Kilowatt) basierend auf Tageszeit, Monat, Wetter und installierter Leistung (59.8 kWp - Arres 3.2 / Premium L Module). Berechnet mit realistischen Sonnenauf-/untergangszeiten und Bewölkungsfaktoren. kW ist eine Momentanleistung - über eine Stunde ergibt sich daraus die Energie in kWh (Kilowattstunden)." />
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 mt-1 md:mt-2">{pvProduction.toFixed(1)} <span className="text-xs sm:text-sm">kW</span></p>
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
@@ -1042,10 +1048,21 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow p-2 md:p-4">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">🏢 Gebäude</h2>
             <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
-              <p><span className="font-bold">PV:</span> {building.pvPeakKw} kWp</p>
-              <p><span className="font-bold">Batterie:</span> {building.capacity} kWh (2× {building.batteries[0].capacityKwh} kWh)</p>
+              <p><span className="font-bold">PV:</span> {building.pvPeakKw} kWp {building.pvModel && `(${building.pvModel})`}</p>
+              <p><span className="font-bold">Batterie:</span> {building.capacity} kWh (2× {building.batteries[0].capacityKwh} kWh) {building.batteries[0].manufacturer && `- ${building.batteries[0].manufacturer} ${building.batteries[0].model}`}</p>
               <p><span className="font-bold">System-Effizienz:</span> {(building.efficiency * 100).toFixed(0)}% <span className="text-[10px] text-gray-600">(Wechselrichter & Batterie)</span></p>
-              <p><span className="font-bold">Wechselrichter:</span> {building.numInverters}× {building.inverterPowerKw} kW</p>
+              {building.inverters && building.inverters.length > 0 ? (
+                <div>
+                  <p className="font-bold">Wechselrichter:</p>
+                  {building.inverters.map((inv, idx) => (
+                    <p key={inv.id} className="ml-2 text-[11px] md:text-xs">
+                      • WR{idx + 1}: {inv.manufacturer} {inv.model} ({inv.powerKw} kW) - {inv.id === 1 ? 'Allgemein' : 'Wohnungen'}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p><span className="font-bold">Wechselrichter:</span> {building.numInverters}× {building.inverterPowerKw} kW</p>
+              )}
             </div>
           </div>
         </div>

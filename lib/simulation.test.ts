@@ -17,14 +17,18 @@ import { Building, Tenant } from './models';
 const testBuilding: Building = {
   id: 1,
   name: 'MFH Gängle 2+4',
-  pvPeakKw: 66.88,
+  pvPeakKw: 59.8, // Updated to match 2x Goodwe GW29.9KN-ET
   capacity: 100,
   efficiency: 0.95,
   numInverters: 2,
-  inverterPowerKw: 33.44,
+  inverterPowerKw: 29.9, // Updated to match Goodwe GW29.9KN-ET
+  inverters: [
+    { id: 1, model: 'GW29.9KN-ET', manufacturer: 'Goodwe', powerKw: 29.9, efficiency: 0.97 },
+    { id: 2, model: 'GW29.9KN-ET', manufacturer: 'Goodwe', powerKw: 29.9, efficiency: 0.97 },
+  ],
   batteries: [
-    { id: 1, inverterId: 1, capacityKwh: 50, soc: 75 },
-    { id: 2, inverterId: 2, capacityKwh: 50, soc: 65 },
+    { id: 1, inverterId: 1, capacityKwh: 50, soc: 75, model: 'Lynx D - 20.0 kWh', manufacturer: 'GoodWe' },
+    { id: 2, inverterId: 2, capacityKwh: 50, soc: 65, model: 'Lynx D - 20.0 kWh', manufacturer: 'GoodWe' },
   ],
 };
 

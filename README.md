@@ -45,11 +45,14 @@ npm start
 **MFH Gängle 2+4**  
 | Parameter | Value |
 |-----------|-------|
-| PV System | 66.88 kWp (2× 33.44 kW inverters) |
-| Battery | 2× 20 kWh (40 kWh total) |
+| PV System | 59.8 kWp (Arres 3.2 / Premium L modules) |
+| Inverters | 2× Goodwe GW29.9KN-ET (29.9 kW each) |
+| Battery | 2× GoodWe Lynx D - 20.0 kWh (40 kWh total) |
 | Tenants | 3 residential units |
 | Annual Consumption | ~43,743 kWh |
-| Annual PV Production | ~139,013 kWh |
+| Annual PV Production | ~125,000 kWh* |
+
+*Estimated based on proportional capacity adjustment (59.8 kWp vs. previous 66.88 kWp)
 
 ---
 
