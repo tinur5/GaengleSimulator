@@ -468,6 +468,18 @@ export default function Dashboard() {
     return { hourlyImports: imports, hourlyExports: exports };
   }, [pvData, consumptionData, selectedDate, strategyConfig]);
 
+  // Calculate self-sufficiency rate (Autarkiegrad)
+  const selfSufficiency = useMemo(() => {
+    const totalConsumption = consumptionData.reduce((sum, c) => sum + c, 0);
+    const totalGridImport = hourlyImports.reduce((sum, i) => sum + i, 0);
+    
+    if (totalConsumption === 0) return 0;
+    
+    // Self-sufficiency = (Total Consumption - Grid Import) / Total Consumption * 100
+    const selfProduced = totalConsumption - totalGridImport;
+    return (selfProduced / totalConsumption) * 100;
+  }, [consumptionData, hourlyImports]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="sticky top-0 z-50 bg-white shadow-lg">
@@ -734,7 +746,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
               ☀️ PV-LEISTUNG
@@ -807,6 +819,23 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <MetricSparkline data={socData} currentHour={selectedHour} color="purple" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-green-500">
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+              🌱 AUTARKIEGRAD
+              <InfoTooltip text="Autarkiegrad (Selbstversorgungsgrad) über 24 Stunden. Zeigt, wieviel Prozent des Strombedarfs aus eigener PV-Produktion und Batteriespeicher gedeckt wird. 100% = vollständig autark, 0% = komplett netzabhängig. Formel: ((Verbrauch - Netzbezug) / Verbrauch) × 100" />
+            </h3>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{selfSufficiency.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
+            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+              <span className="font-semibold">24h Durchschnitt</span>
+            </div>
+            <div className="mt-2 bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(0, selfSufficiency))}%` }}
+              ></div>
             </div>
           </div>
         </div>
