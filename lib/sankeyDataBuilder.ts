@@ -186,7 +186,7 @@ function buildRootLevelSankey(
       // Export to grid (if batteries full or not charging)
       // Grid export also goes through inverters
       if (!chargingBat1 && !chargingBat2) {
-        // Distribute grid export through both inverters proportionally
+        // Distribute grid export through both inverters proportionally (50/50)
         const halfSurplus = surplusW / 2;
         links.push({ source: pvIndex, target: wr1Index, value: halfSurplus });
         links.push({ source: wr1Index, target: gridIndex, value: halfSurplus });
@@ -420,7 +420,7 @@ function buildDrillDownSankey(
       
       // Export to grid if batteries not charging (through inverters)
       if (!chargingBat1 && !chargingBat2) {
-        // Distribute grid export through both inverters proportionally
+        // Distribute grid export through both inverters proportionally (50/50)
         const halfSurplus = surplusW / 2;
         links.push({ source: pvIndex, target: wr1Index, value: halfSurplus });
         links.push({ source: wr1Index, target: gridIndex, value: halfSurplus });
