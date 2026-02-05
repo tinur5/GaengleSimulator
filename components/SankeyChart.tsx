@@ -168,6 +168,7 @@ export default function SankeyChart({ width = 800, height = 400, data, minHeight
             if (nodeSource === 'production') return '#f59e0b'; // Orange for PV
             if (nodeSource === 'storage') return '#8b5cf6'; // Purple for Battery
             if (nodeSource === 'grid') return '#ef4444'; // Red for Grid
+            if (nodeSource === 'inverter') return '#06b6d4'; // Cyan for Inverter
             // Consumer nodes
             if (nodeSource === 'assumed') return '#94a3b8'; // Gray for assumed
             if (nodeId.includes('pv')) return '#f59e0b'; // Orange for PV
