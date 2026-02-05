@@ -47,7 +47,8 @@ export default function DataContextBanner({ selectedDate, selectedHour }: DataCo
               <div className="bg-white rounded p-2">
                 <h4 className="font-bold text-blue-900 mb-1">☀️ PV-Annahmen</h4>
                 <ul className="space-y-1 text-gray-700">
-                  <li>• <strong>Peak:</strong> 66.88 kWp</li>
+                  <li>• <strong>Peak:</strong> 59.8 kWp</li>
+                  <li>• <strong>Module:</strong> Arres 3.2 / Premium L</li>
                   <li>• <strong>Effizienz:</strong> 95%</li>
                   <li>• <strong>Standort:</strong> Baizers (46.5°N)</li>
                   <li>• <strong>Bewölkung:</strong> Saisonal (45-68%)</li>

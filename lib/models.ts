@@ -1,9 +1,19 @@
 // lib/models.ts
+export interface Inverter {
+  id: number;
+  model: string;
+  manufacturer: string;
+  powerKw: number;
+  efficiency?: number;
+}
+
 export interface Battery {
   id: number;
   inverterId: number;
   capacityKwh: number;
   soc: number; // State of Charge 0-100%
+  model?: string;
+  manufacturer?: string;
 }
 
 export interface Building {
@@ -11,8 +21,11 @@ export interface Building {
   name: string;
   address?: string;
   pvPeakKw: number;
-  numInverters?: number;
-  inverterPowerKw?: number;
+  pvModel?: string;
+  pvManufacturer?: string;
+  numInverters?: number; // Deprecated: use inverters array instead
+  inverterPowerKw?: number; // Deprecated: use inverters array instead
+  inverters?: Inverter[];
   batteries: Battery[];
   hasPool?: boolean;
   numHeatPumps?: number;

@@ -43,8 +43,8 @@ export default function DebugPanel({
   selectedHour,
   selectedDate,
   strategyConfig,
-  inverterPowerKw = 33.44,
-  pvPeakKw = 66.88,
+  inverterPowerKw = 29.9,
+  pvPeakKw = 59.8,
 }: DebugPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -93,11 +93,11 @@ export default function DebugPanel({
                 </div>
                 <div className="flex justify-between border-t pt-1 mt-1">
                   <span>Peak-Leistung:</span>
-                  <span className="font-semibold">66.88 kWp</span>
+                  <span className="font-semibold">{pvPeakKw} kWp</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Auslastung:</span>
-                  <span className="font-semibold">{((pvProduction / 66.88) * 100).toFixed(1)}%</span>
+                  <span className="font-semibold">{((pvProduction / pvPeakKw) * 100).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
