@@ -312,23 +312,29 @@ export default function Dashboard() {
     return soc;
   };
 
-  // Calculate SOC for each battery independently
-  const battery1Soc = calculateHourlySoc(selectedDate, selectedHour, 20, 1);
-  const battery2Soc = calculateHourlySoc(selectedDate, selectedHour, 20, 2);
-  const avgSoc = (battery1Soc + battery2Soc) / 2;
+  // Calculate SOC for each battery independently at the START of the selected hour
+  // This represents where we are at the beginning of this hour, before this hour's energy flows
+  const battery1SocStart = selectedHour > 0 
+    ? calculateHourlySoc(selectedDate, selectedHour - 1, 20, 1)
+    : calculateHourlySoc(selectedDate, 0, 20, 1);
+  const battery2SocStart = selectedHour > 0
+    ? calculateHourlySoc(selectedDate, selectedHour - 1, 20, 2)
+    : calculateHourlySoc(selectedDate, 0, 20, 2);
   
-  // Calculate total battery energy stored
-  const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
-  const battery2Energy = (battery2Soc / 100) * building.batteries[1].capacityKwh;
-  const totalBatteryEnergy = battery1Energy + battery2Energy;
+  const avgSocStart = (battery1SocStart + battery2SocStart) / 2;
+  
+  // Calculate total battery energy stored at start of hour
+  const battery1EnergyStart = (battery1SocStart / 100) * building.batteries[0].capacityKwh;
+  const battery2EnergyStart = (battery2SocStart / 100) * building.batteries[1].capacityKwh;
+  const totalBatteryEnergyStart = battery1EnergyStart + battery2EnergyStart;
 
   // Calculate decision reason for current state using energy management logic
   const totalBatteryCapacity = building.batteries[0].capacityKwh + building.batteries[1].capacityKwh;
   const batteryState: BatteryState = {
-    soc: avgSoc,
-    energy: totalBatteryEnergy,
-    canCharge: ((100 - avgSoc) / 100) * totalBatteryCapacity,
-    canDischarge: Math.max(0, ((avgSoc - 15) / 100) * totalBatteryCapacity),
+    soc: avgSocStart,
+    energy: totalBatteryEnergyStart,
+    canCharge: ((100 - avgSocStart) / 100) * totalBatteryCapacity,
+    canDischarge: Math.max(0, ((avgSocStart - strategyConfig.minSoc) / 100) * totalBatteryCapacity),
   };
   
   const energyFlow = calculateOptimalEnergyFlow(
@@ -341,6 +347,61 @@ export default function Dashboard() {
   );
   
   const decisionReason = energyFlow.decisionReason || '';
+  
+  // Calculate current SOC after this hour's energy flow (for display)
+  // This shows the "live" state during the hour
+  const netBatteryFlowKwh = energyFlow.batteryCharge - energyFlow.batteryDischarge;
+  const socChangePercent = (netBatteryFlowKwh / totalBatteryCapacity) * 100 * building.efficiency;
+  
+  // Calculate per-battery SOC based on actual loads
+  const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, selectedHour, dayOfWeek, month), 0);
+  const common = Object.values(getCommonAreaConsumption(selectedHour, month)).reduce((a: number, b: any) => a + b, 0);
+  
+  // Battery 1 (WR1) handles common areas, Battery 2 (WR2) handles apartments
+  const pvPerBattery = pvProduction / 2;
+  const netFlow1 = pvPerBattery - common;  // WR1/Battery 1
+  const netFlow2 = pvPerBattery - house;   // WR2/Battery 2
+  
+  // Calculate individual battery SOC changes
+  let battery1SocChange = 0;
+  let battery2SocChange = 0;
+  
+  if (netFlow1 > 0.05 && battery1SocStart < strategyConfig.maxSoc) {
+    const chargeRate = Math.min(netFlow1, strategyConfig.maxChargeRate / 2);
+    battery1SocChange = (chargeRate / building.batteries[0].capacityKwh) * 100 * building.efficiency;
+  } else if (netFlow1 < -0.05) {
+    const isNight = selectedHour >= strategyConfig.nightStart || selectedHour < strategyConfig.nightEnd;
+    const shouldDischarge = isNight 
+      ? battery1SocStart > strategyConfig.targetNightSoc 
+      : battery1SocStart > strategyConfig.minSoc;
+    if (shouldDischarge) {
+      const dischargeRate = Math.min(Math.abs(netFlow1), strategyConfig.maxDischargeRate / 2);
+      battery1SocChange = -(dischargeRate / building.batteries[0].capacityKwh) * 100 / building.efficiency;
+    }
+  }
+  
+  if (netFlow2 > 0.05 && battery2SocStart < strategyConfig.maxSoc) {
+    const chargeRate = Math.min(netFlow2, strategyConfig.maxChargeRate / 2);
+    battery2SocChange = (chargeRate / building.batteries[1].capacityKwh) * 100 * building.efficiency;
+  } else if (netFlow2 < -0.05) {
+    const isNight = selectedHour >= strategyConfig.nightStart || selectedHour < strategyConfig.nightEnd;
+    const shouldDischarge = isNight 
+      ? battery2SocStart > strategyConfig.targetNightSoc 
+      : battery2SocStart > strategyConfig.minSoc;
+    if (shouldDischarge) {
+      const dischargeRate = Math.min(Math.abs(netFlow2), strategyConfig.maxDischargeRate / 2);
+      battery2SocChange = -(dischargeRate / building.batteries[1].capacityKwh) * 100 / building.efficiency;
+    }
+  }
+  
+  // Current SOC after this hour's flow (clamped to valid range)
+  const battery1Soc = Math.max(0, Math.min(100, battery1SocStart + battery1SocChange));
+  const battery2Soc = Math.max(0, Math.min(100, battery2SocStart + battery2SocChange));
+  const avgSoc = (battery1Soc + battery2Soc) / 2;
+  
+  const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
+  const battery2Energy = (battery2Soc / 100) * building.batteries[1].capacityKwh;
+  const totalBatteryEnergy = battery1Energy + battery2Energy;
 
   // Calculate battery direction (charging/discharging/idle)
   const getBatteryDirection = (netFlow: number, soc: number): 'charging' | 'discharging' | 'idle' => {
