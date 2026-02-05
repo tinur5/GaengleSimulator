@@ -27,6 +27,7 @@ interface DebugPanelProps {
   };
   inverterPowerKw?: number;
   pvPeakKw?: number;
+  decisionReason?: string;
 }
 
 export default function DebugPanel({
@@ -45,6 +46,7 @@ export default function DebugPanel({
   strategyConfig,
   inverterPowerKw = 29.9,
   pvPeakKw = 59.8,
+  decisionReason,
 }: DebugPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -78,6 +80,21 @@ export default function DebugPanel({
 
       {isExpanded && (
         <div className="p-4 pt-0 space-y-4">
+          {/* Decision Explanation - Prominent */}
+          {decisionReason && (
+            <div className="bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-400 rounded-lg p-4 shadow-md">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">💡</span>
+                <div className="flex-1">
+                  <h4 className="font-bold text-sm text-blue-900 mb-2">Warum wird Strom so bezogen?</h4>
+                  <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-line">
+                    {decisionReason}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {/* PV Production Details */}
             <div className="bg-white rounded-lg p-3 border border-gray-200">

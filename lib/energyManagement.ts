@@ -53,6 +53,7 @@ export interface EnergyFlow {
   batteryDischarge: number; // Batterie-Entladung (kW, positiv = entladen)
   gridImport: number;       // Netzbezug (kW, positiv = Bezug)
   gridExport: number;       // Netzeinspeisung (kW, positiv = Einspeisung)
+  decisionReason?: string;  // Erklärung der Energiemanagement-Entscheidung
 }
 
 /**
@@ -76,6 +77,7 @@ export function calculateOptimalEnergyFlow(
     batteryDischarge: 0,
     gridImport: 0,
     gridExport: 0,
+    decisionReason: '',
   };
   
   // Bestimme Tageszeit-Strategie
@@ -94,10 +96,14 @@ export function calculateOptimalEnergyFlow(
       const remainingSurplus = netFlow - flow.batteryCharge;
       if (remainingSurplus > 0.05) {
         flow.gridExport = remainingSurplus;
+        flow.decisionReason = `PV-Überschuss: ${netFlow.toFixed(2)} kW. Batterie wird geladen mit ${flow.batteryCharge.toFixed(2)} kW (max. ${config.maxChargeRate} kW). Überschuss von ${flow.gridExport.toFixed(2)} kW wird ins Netz eingespeist.`;
+      } else {
+        flow.decisionReason = `PV-Überschuss: ${netFlow.toFixed(2)} kW. Batterie wird vollständig geladen (SOC: ${batteryState.soc.toFixed(1)}% → ${config.maxSoc}%). Keine Netzeinspeisung.`;
       }
     } else {
       // Batterie voll -> gesamter Überschuss ins Netz
       flow.gridExport = netFlow;
+      flow.decisionReason = `PV-Überschuss: ${netFlow.toFixed(2)} kW. Batterie ist voll (${batteryState.soc.toFixed(1)}% ≥ ${config.maxSoc}%). Gesamter Überschuss wird ins Netz eingespeist.`;
     }
   }
   // Fall 2: PV-Defizit (netFlow < 0)
@@ -116,10 +122,14 @@ export function calculateOptimalEnergyFlow(
         const remainingDeficit = deficit - flow.batteryDischarge;
         if (remainingDeficit > 0.05) {
           flow.gridImport = remainingDeficit;
+          flow.decisionReason = `🌙 NACHTMODUS (${String(hour).padStart(2, '0')}:00 Uhr): Defizit ${deficit.toFixed(2)} kW. Batterie-SOC (${batteryState.soc.toFixed(1)}%) > Nacht-Ziel (${config.targetNightSoc}%), daher wird Batterie genutzt: ${flow.batteryDischarge.toFixed(2)} kW (max. ${config.maxDischargeRate} kW). Restdefizit ${flow.gridImport.toFixed(2)} kW vom Netz.`;
+        } else {
+          flow.decisionReason = `🌙 NACHTMODUS (${String(hour).padStart(2, '0')}:00 Uhr): Defizit ${deficit.toFixed(2)} kW. Batterie-SOC (${batteryState.soc.toFixed(1)}%) > Nacht-Ziel (${config.targetNightSoc}%), daher wird vollständig aus Batterie gedeckt: ${flow.batteryDischarge.toFixed(2)} kW.`;
         }
       } else {
         // SOC zu niedrig -> komplett vom Netz
         flow.gridImport = deficit;
+        flow.decisionReason = `🌙 NACHTMODUS (${String(hour).padStart(2, '0')}:00 Uhr): Defizit ${deficit.toFixed(2)} kW. ⚠️ BATTERIE WIRD GESCHONT: SOC (${batteryState.soc.toFixed(1)}%) ≤ Nacht-Ziel-SOC (${config.targetNightSoc}%). Kompletter Strombezug erfolgt vom Netz, um Batterieladung für die restliche Nacht zu bewahren (bis ${String(config.nightEnd).padStart(2, '0')}:00 Uhr).`;
       }
     } else {
       // TAGMODUS: Batterie bevorzugt nutzen wenn verfügbar
@@ -131,12 +141,20 @@ export function calculateOptimalEnergyFlow(
         const remainingDeficit = deficit - flow.batteryDischarge;
         if (remainingDeficit > 0.05) {
           flow.gridImport = remainingDeficit;
+          flow.decisionReason = `☀️ TAGMODUS (${String(hour).padStart(2, '0')}:00 Uhr): Defizit ${deficit.toFixed(2)} kW. Batterie-SOC (${batteryState.soc.toFixed(1)}%) > Minimum (${config.minSoc}%), daher wird Batterie genutzt: ${flow.batteryDischarge.toFixed(2)} kW (max. ${config.maxDischargeRate} kW). Restdefizit ${flow.gridImport.toFixed(2)} kW vom Netz.`;
+        } else {
+          flow.decisionReason = `☀️ TAGMODUS (${String(hour).padStart(2, '0')}:00 Uhr): Defizit ${deficit.toFixed(2)} kW. Batterie-SOC (${batteryState.soc.toFixed(1)}%) > Minimum (${config.minSoc}%), daher wird vollständig aus Batterie gedeckt: ${flow.batteryDischarge.toFixed(2)} kW.`;
         }
       } else {
         // SOC zu niedrig -> komplett vom Netz
         flow.gridImport = deficit;
+        flow.decisionReason = `☀️ TAGMODUS (${String(hour).padStart(2, '0')}:00 Uhr): Defizit ${deficit.toFixed(2)} kW. ⚠️ BATTERIE-MINIMUM ERREICHT: SOC (${batteryState.soc.toFixed(1)}%) ≤ Minimum-SOC (${config.minSoc}%). Kompletter Strombezug erfolgt vom Netz, um Batterie-Reserve zu schützen.`;
       }
     }
+  }
+  // Fall 3: Ausgeglichen (netFlow ≈ 0)
+  else {
+    flow.decisionReason = `⚖️ AUSGEGLICHEN: PV-Produktion (${pvProduction.toFixed(2)} kW) deckt Verbrauch (${consumption.toFixed(2)} kW) vollständig. Kein Netz- oder Batterieaustausch erforderlich.`;
   }
   
   return flow;

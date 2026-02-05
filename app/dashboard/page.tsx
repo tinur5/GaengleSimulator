@@ -22,6 +22,7 @@ import { buildSankeyData, EnergyFlowData, getBreadcrumbPath } from '../../lib/sa
 import { ConsumerNode } from '../../lib/consumerHierarchy';
 import { LKWTariffType, getAllTariffModels } from '../../lib/lkwTariffs';
 import CostOverview from '../../components/CostOverview';
+import { calculateOptimalEnergyFlow, BatteryState } from '../../lib/energyManagement';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -316,6 +317,26 @@ export default function Dashboard() {
   const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
   const battery2Energy = (battery2Soc / 100) * building.batteries[1].capacityKwh;
   const totalBatteryEnergy = battery1Energy + battery2Energy;
+
+  // Calculate decision reason for current state using energy management logic
+  const totalBatteryCapacity = building.batteries[0].capacityKwh + building.batteries[1].capacityKwh;
+  const batteryState: BatteryState = {
+    soc: avgSoc,
+    energy: totalBatteryEnergy,
+    canCharge: ((100 - avgSoc) / 100) * totalBatteryCapacity,
+    canDischarge: Math.max(0, ((avgSoc - 15) / 100) * totalBatteryCapacity),
+  };
+  
+  const energyFlow = calculateOptimalEnergyFlow(
+    pvProduction,
+    totalConsumption,
+    batteryState,
+    selectedHour,
+    month,
+    strategyConfig
+  );
+  
+  const decisionReason = energyFlow.decisionReason || '';
 
   // Calculate battery direction (charging/discharging/idle)
   const getBatteryDirection = (netFlow: number, soc: number): 'charging' | 'discharging' | 'idle' => {
@@ -671,6 +692,7 @@ export default function Dashboard() {
           strategyConfig={strategyConfig}
           inverterPowerKw={building.inverterPowerKw}
           pvPeakKw={building.pvPeakKw}
+          decisionReason={decisionReason}
         />
 
         {/* Cost Overview */}
