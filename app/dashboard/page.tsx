@@ -22,6 +22,7 @@ import { buildSankeyData, EnergyFlowData, getBreadcrumbPath } from '../../lib/sa
 import { ConsumerNode } from '../../lib/consumerHierarchy';
 import { LKWTariffType, getAllTariffModels } from '../../lib/lkwTariffs';
 import CostOverview from '../../components/CostOverview';
+import { calculateOptimalEnergyFlow, BatteryState } from '../../lib/energyManagement';
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -239,8 +240,10 @@ export default function Dashboard() {
     if (isWinter) startSoc += 15; // Winter: längere Nächte
     if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
     
-    // Add small variation between batteries (±3%)
-    const batteryVariation = inverterId === 1 ? -2 : 2;
+    // Different starting SOC based on load profile
+    // WR1 (Allgemein) has more consistent load from heating/pool
+    // WR2 (Wohnungen) has more variable tenant consumption
+    const batteryVariation = inverterId === 1 ? -5 : 3;
     startSoc = Math.min(85, Math.max(20, startSoc + batteryVariation));
     
     let soc = startSoc;
@@ -258,11 +261,13 @@ export default function Dashboard() {
       const pv = calculatePVProduction(building.pvPeakKw, currentHour, currentMonth, building.efficiency);
       const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, currentHour, currentDayOfWeek, currentMonth), 0);
       const common = Object.values(getCommonAreaConsumption(currentHour, currentMonth)).reduce((a: number, b: any) => a + b, 0);
-      const consumption = house + common;
       
-      // Energie pro Batterie (halber Verbrauch/Produktion)
+      // WR1 (inverterId 1) -> Allgemein (common areas)
+      // WR2 (inverterId 2) -> Wohnungen (apartments)
+      // PV production split equally (each inverter connected to ~half the panels)
       const pvPerBattery = pv / 2;
-      const consumptionPerBattery = consumption / 2;
+      // Consumption assigned based on actual inverter load assignment
+      const consumptionPerBattery = inverterId === 1 ? common : house;
       const netFlow = pvPerBattery - consumptionPerBattery;
       
       // Bestimme Tageszeit-Strategie
@@ -307,12 +312,98 @@ export default function Dashboard() {
     return soc;
   };
 
-  // Calculate SOC for each battery independently
-  const battery1Soc = calculateHourlySoc(selectedDate, selectedHour, 20, 1);
-  const battery2Soc = calculateHourlySoc(selectedDate, selectedHour, 20, 2);
+  // Calculate SOC for each battery independently at the START of the selected hour
+  // This represents where we are at the beginning of this hour, before this hour's energy flows
+  const battery1SocStart = selectedHour > 0 
+    ? calculateHourlySoc(selectedDate, selectedHour - 1, 20, 1)
+    : (() => {
+        // For midnight (hour 0), get the previous day's final hour (23)
+        const previousDay = new Date(selectedDate);
+        previousDay.setDate(previousDay.getDate() - 1);
+        return calculateHourlySoc(previousDay, 23, 20, 1);
+      })();
+  const battery2SocStart = selectedHour > 0
+    ? calculateHourlySoc(selectedDate, selectedHour - 1, 20, 2)
+    : (() => {
+        const previousDay = new Date(selectedDate);
+        previousDay.setDate(previousDay.getDate() - 1);
+        return calculateHourlySoc(previousDay, 23, 20, 2);
+      })();
+  
+  const avgSocStart = (battery1SocStart + battery2SocStart) / 2;
+  
+  // Calculate total battery energy stored at start of hour
+  const battery1EnergyStart = (battery1SocStart / 100) * building.batteries[0].capacityKwh;
+  const battery2EnergyStart = (battery2SocStart / 100) * building.batteries[1].capacityKwh;
+  const totalBatteryEnergyStart = battery1EnergyStart + battery2EnergyStart;
+
+  // Calculate decision reason for current state using energy management logic
+  const totalBatteryCapacity = building.batteries[0].capacityKwh + building.batteries[1].capacityKwh;
+  const batteryState: BatteryState = {
+    soc: avgSocStart,
+    energy: totalBatteryEnergyStart,
+    canCharge: ((100 - avgSocStart) / 100) * totalBatteryCapacity,
+    canDischarge: Math.max(0, ((avgSocStart - strategyConfig.minSoc) / 100) * totalBatteryCapacity),
+  };
+  
+  const energyFlow = calculateOptimalEnergyFlow(
+    pvProduction,
+    totalConsumption,
+    batteryState,
+    selectedHour,
+    month,
+    strategyConfig
+  );
+  
+  const decisionReason = energyFlow.decisionReason || '';
+  
+  // Calculate current SOC after this hour's energy flow (for display)
+  // Calculate per-battery SOC based on actual loads
+  const houseTotalConsumption = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, selectedHour, dayOfWeek, month), 0);
+  const commonAreaConsumption = Object.values(getCommonAreaConsumption(selectedHour, month)).reduce((a: number, b: any) => a + b, 0);
+  
+  // Battery 1 (WR1) handles common areas, Battery 2 (WR2) handles apartments
+  const pvPerBattery = pvProduction / 2;
+  const netFlow1 = pvPerBattery - commonAreaConsumption;  // WR1/Battery 1
+  const netFlow2 = pvPerBattery - houseTotalConsumption;   // WR2/Battery 2
+  
+  // Calculate individual battery SOC changes
+  let battery1SocChange = 0;
+  let battery2SocChange = 0;
+  
+  if (netFlow1 > 0.05 && battery1SocStart < strategyConfig.maxSoc) {
+    const chargeRate = Math.min(netFlow1, strategyConfig.maxChargeRate / 2);
+    battery1SocChange = (chargeRate / building.batteries[0].capacityKwh) * 100 * building.efficiency;
+  } else if (netFlow1 < -0.05) {
+    const isNight = selectedHour >= strategyConfig.nightStart || selectedHour < strategyConfig.nightEnd;
+    const shouldDischarge = isNight 
+      ? battery1SocStart > strategyConfig.targetNightSoc 
+      : battery1SocStart > strategyConfig.minSoc;
+    if (shouldDischarge) {
+      const dischargeRate = Math.min(Math.abs(netFlow1), strategyConfig.maxDischargeRate / 2);
+      battery1SocChange = -(dischargeRate / building.batteries[0].capacityKwh) * 100 / building.efficiency;
+    }
+  }
+  
+  if (netFlow2 > 0.05 && battery2SocStart < strategyConfig.maxSoc) {
+    const chargeRate = Math.min(netFlow2, strategyConfig.maxChargeRate / 2);
+    battery2SocChange = (chargeRate / building.batteries[1].capacityKwh) * 100 * building.efficiency;
+  } else if (netFlow2 < -0.05) {
+    const isNight = selectedHour >= strategyConfig.nightStart || selectedHour < strategyConfig.nightEnd;
+    const shouldDischarge = isNight 
+      ? battery2SocStart > strategyConfig.targetNightSoc 
+      : battery2SocStart > strategyConfig.minSoc;
+    if (shouldDischarge) {
+      const dischargeRate = Math.min(Math.abs(netFlow2), strategyConfig.maxDischargeRate / 2);
+      battery2SocChange = -(dischargeRate / building.batteries[1].capacityKwh) * 100 / building.efficiency;
+    }
+  }
+  
+  // Current SOC after this hour's flow (clamped to valid range)
+  const battery1Soc = Math.max(0, Math.min(100, battery1SocStart + battery1SocChange));
+  const battery2Soc = Math.max(0, Math.min(100, battery2SocStart + battery2SocChange));
   const avgSoc = (battery1Soc + battery2Soc) / 2;
   
-  // Calculate total battery energy stored
   const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
   const battery2Energy = (battery2Soc / 100) * building.batteries[1].capacityKwh;
   const totalBatteryEnergy = battery1Energy + battery2Energy;
@@ -446,6 +537,18 @@ export default function Dashboard() {
     
     return { hourlyImports: imports, hourlyExports: exports };
   }, [pvData, consumptionData, selectedDate, strategyConfig]);
+
+  // Calculate self-sufficiency rate (Autarkiegrad)
+  const selfSufficiency = useMemo(() => {
+    const totalConsumption = consumptionData.reduce((sum, c) => sum + c, 0);
+    const totalGridImport = hourlyImports.reduce((sum, i) => sum + i, 0);
+    
+    if (totalConsumption === 0) return 0;
+    
+    // Self-sufficiency = (Total Consumption - Grid Import) / Total Consumption * 100
+    const selfProduced = totalConsumption - totalGridImport;
+    return (selfProduced / totalConsumption) * 100;
+  }, [consumptionData, hourlyImports]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -671,6 +774,7 @@ export default function Dashboard() {
           strategyConfig={strategyConfig}
           inverterPowerKw={building.inverterPowerKw}
           pvPeakKw={building.pvPeakKw}
+          decisionReason={decisionReason}
         />
 
         {/* Cost Overview */}
@@ -712,7 +816,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-orange-400">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
               ☀️ PV-LEISTUNG
@@ -785,6 +889,23 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <MetricSparkline data={socData} currentHour={selectedHour} color="purple" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-green-500">
+            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+              🌱 AUTARKIEGRAD
+              <InfoTooltip text="Autarkiegrad (Selbstversorgungsgrad) über 24 Stunden. Zeigt, wie viel Prozent des Strombedarfs aus eigener PV-Produktion und Batteriespeicher gedeckt wird. 100% = vollständig autark, 0% = komplett netzabhängig. Formel: ((Verbrauch - Netzbezug) / Verbrauch) × 100" />
+            </h3>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{selfSufficiency.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
+            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+              <span className="font-semibold">24h Durchschnitt</span>
+            </div>
+            <div className="mt-2 bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(0, selfSufficiency))}%` }}
+              ></div>
             </div>
           </div>
         </div>

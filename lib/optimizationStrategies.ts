@@ -33,8 +33,8 @@ export interface OptimizationStrategy {
 
 /**
  * Kostenoptimierung: Minimiert Stromkosten durch intelligentes Laden/Entladen
- * - Batterie voll laden während günstiger Zeiten
- * - Maximale Nutzung von PV-Energie
+ * - Batterie nachts nutzen statt teuren Netzstrom zu beziehen
+ * - Maximale Nutzung von PV-Energie tagsüber
  * - Netzeinspeisung vermeiden (wenn Vergütung niedrig)
  */
 export const COST_OPTIMIZATION: OptimizationStrategy = {
@@ -44,7 +44,7 @@ export const COST_OPTIMIZATION: OptimizationStrategy = {
   config: {
     minSoc: 10,
     maxSoc: 98,
-    targetNightSoc: 85,  // Hoch, um Nachtbezug zu vermeiden
+    targetNightSoc: 15,  // Niedrig, damit Batterie nachts voll genutzt wird statt teuren Netzstrom
     targetDaySoc: 25,
     maxChargeRate: 11,
     maxDischargeRate: 7,
