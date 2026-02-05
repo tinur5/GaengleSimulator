@@ -240,8 +240,10 @@ export default function Dashboard() {
     if (isWinter) startSoc += 15; // Winter: längere Nächte
     if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
     
-    // Add small variation between batteries (±3%)
-    const batteryVariation = inverterId === 1 ? -2 : 2;
+    // Different starting SOC based on load profile
+    // WR1 (Allgemein) has more consistent load from heating/pool
+    // WR2 (Wohnungen) has more variable tenant consumption
+    const batteryVariation = inverterId === 1 ? -5 : 3;
     startSoc = Math.min(85, Math.max(20, startSoc + batteryVariation));
     
     let soc = startSoc;
@@ -259,11 +261,11 @@ export default function Dashboard() {
       const pv = calculatePVProduction(building.pvPeakKw, currentHour, currentMonth, building.efficiency);
       const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, currentHour, currentDayOfWeek, currentMonth), 0);
       const common = Object.values(getCommonAreaConsumption(currentHour, currentMonth)).reduce((a: number, b: any) => a + b, 0);
-      const consumption = house + common;
       
-      // Energie pro Batterie (halber Verbrauch/Produktion)
-      const pvPerBattery = pv / 2;
-      const consumptionPerBattery = consumption / 2;
+      // WR1 (inverterId 1) -> Allgemein (common areas)
+      // WR2 (inverterId 2) -> Wohnungen (apartments)
+      const pvPerBattery = pv / 2; // PV production split equally
+      const consumptionPerBattery = inverterId === 1 ? common : house;
       const netFlow = pvPerBattery - consumptionPerBattery;
       
       // Bestimme Tageszeit-Strategie
