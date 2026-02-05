@@ -24,6 +24,8 @@ export interface SankeyData {
 
 // Constants
 const MAX_BATTERY_DISCHARGE_W = 10000; // Maximum battery discharge rate in watts
+const MAX_BATTERY_CHARGE_W = 5000; // Maximum battery charge rate per battery in watts (10 kW total / 2 batteries)
+const MIN_FLOW_THRESHOLD_W = 50; // Minimum power flow to display (0.05 kW = 50 W) - avoids clutter from tiny flows
 
 export interface EnergyFlowData {
   pvProductionW: number;
@@ -146,7 +148,7 @@ function buildRootLevelSankey(
     // PV flows to inverters proportionally to their consumers
     if (apartmentsNode && apartmentsNode.powerW > 0) {
       const apartmentShare = (apartmentsNode.powerW / totalConsumptionW) * pvToConsumption;
-      if (apartmentShare > 0.05) {
+      if (apartmentShare > MIN_FLOW_THRESHOLD_W) {
         // PV -> WR2 -> Apartments
         links.push({ source: pvIndex, target: wr2Index, value: apartmentShare });
         links.push({ source: wr2Index, target: apartmentsIndex, value: apartmentShare });
@@ -155,7 +157,7 @@ function buildRootLevelSankey(
     
     if (sharedNode && sharedNode.powerW > 0) {
       const sharedShare = (sharedNode.powerW / totalConsumptionW) * pvToConsumption;
-      if (sharedShare > 0.05) {
+      if (sharedShare > MIN_FLOW_THRESHOLD_W) {
         // PV -> WR1 -> Shared
         links.push({ source: pvIndex, target: wr1Index, value: sharedShare });
         links.push({ source: wr1Index, target: sharedIndex, value: sharedShare });
@@ -169,22 +171,40 @@ function buildRootLevelSankey(
       const chargingBat2 = energyFlow.battery2Direction === 'charging';
       const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
       
-      if (numChargingBatteries > 0) {
-        const surplusPerBattery = surplusW / numChargingBatteries;
-        if (chargingBat1) {
-          // PV -> WR1 -> Bat1
-          links.push({ source: pvIndex, target: wr1Index, value: surplusPerBattery });
-          links.push({ source: wr1Index, target: bat1Index, value: surplusPerBattery });
-        }
-        if (chargingBat2) {
-          // PV -> WR2 -> Bat2
-          links.push({ source: pvIndex, target: wr2Index, value: surplusPerBattery });
-          links.push({ source: wr2Index, target: bat2Index, value: surplusPerBattery });
-        }
+      let totalChargePower = 0;
+      
+      // Calculate actual charge power for each battery (limited by MAX_BATTERY_CHARGE_W)
+      // If both batteries are charging, split surplus equally; if only one, give it all the surplus up to max rate
+      if (chargingBat1) {
+        const availableForBat1 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat1ChargePower = Math.min(availableForBat1, MAX_BATTERY_CHARGE_W);
+        // PV -> WR1 -> Bat1
+        links.push({ source: pvIndex, target: wr1Index, value: bat1ChargePower });
+        links.push({ source: wr1Index, target: bat1Index, value: bat1ChargePower });
+        totalChargePower += bat1ChargePower;
       }
       
-      // Export to grid (if batteries full or not charging)
-      // Grid export also goes through inverters
+      if (chargingBat2) {
+        const availableForBat2 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat2ChargePower = Math.min(availableForBat2, MAX_BATTERY_CHARGE_W);
+        // PV -> WR2 -> Bat2
+        links.push({ source: pvIndex, target: wr2Index, value: bat2ChargePower });
+        links.push({ source: wr2Index, target: bat2Index, value: bat2ChargePower });
+        totalChargePower += bat2ChargePower;
+      }
+      
+      // Export remaining surplus to grid (if any) - after batteries are charging at max rate
+      const remainingSurplus = surplusW - totalChargePower;
+      if (remainingSurplus > MIN_FLOW_THRESHOLD_W) {
+        // Distribute grid export through both inverters proportionally (50/50)
+        const halfRemaining = remainingSurplus / 2;
+        links.push({ source: pvIndex, target: wr1Index, value: halfRemaining });
+        links.push({ source: wr1Index, target: gridIndex, value: halfRemaining });
+        links.push({ source: pvIndex, target: wr2Index, value: halfRemaining });
+        links.push({ source: wr2Index, target: gridIndex, value: halfRemaining });
+      }
+      
+      // If no batteries are charging, export all surplus to grid
       if (!chargingBat1 && !chargingBat2) {
         // Distribute grid export through both inverters proportionally (50/50)
         const halfSurplus = surplusW / 2;
@@ -219,7 +239,7 @@ function buildRootLevelSankey(
     // Battery 1 supplies ONLY shared area through WR1
     if (energyFlow.battery1Direction === 'discharging' && sharedDeficit > 0) {
       const fromBat1 = Math.min(sharedDeficit, MAX_BATTERY_DISCHARGE_W);
-      if (fromBat1 > 0.05 && sharedNode) {
+      if (fromBat1 > MIN_FLOW_THRESHOLD_W && sharedNode) {
         // Bat1 -> WR1 -> Shared
         links.push({ source: bat1Index, target: wr1Index, value: fromBat1 });
         links.push({ source: wr1Index, target: sharedIndex, value: fromBat1 });
@@ -230,7 +250,7 @@ function buildRootLevelSankey(
     // Battery 2 supplies ONLY apartments through WR2
     if (energyFlow.battery2Direction === 'discharging' && apartmentsDeficit > 0) {
       const fromBat2 = Math.min(apartmentsDeficit, MAX_BATTERY_DISCHARGE_W);
-      if (fromBat2 > 0.05 && apartmentsNode) {
+      if (fromBat2 > MIN_FLOW_THRESHOLD_W && apartmentsNode) {
         // Bat2 -> WR2 -> Apartments
         links.push({ source: bat2Index, target: wr2Index, value: fromBat2 });
         links.push({ source: wr2Index, target: apartmentsIndex, value: fromBat2 });
@@ -239,12 +259,12 @@ function buildRootLevelSankey(
     }
     
     // Remaining deficit from grid through inverters
-    if (sharedDeficit > 0.05 && sharedNode) {
+    if (sharedDeficit > MIN_FLOW_THRESHOLD_W && sharedNode) {
       // Grid -> WR1 -> Shared
       links.push({ source: gridIndex, target: wr1Index, value: sharedDeficit });
       links.push({ source: wr1Index, target: sharedIndex, value: sharedDeficit });
     }
-    if (apartmentsDeficit > 0.05 && apartmentsNode) {
+    if (apartmentsDeficit > MIN_FLOW_THRESHOLD_W && apartmentsNode) {
       // Grid -> WR2 -> Apartments
       links.push({ source: gridIndex, target: wr2Index, value: apartmentsDeficit });
       links.push({ source: wr2Index, target: apartmentsIndex, value: apartmentsDeficit });
@@ -365,7 +385,7 @@ function buildDrillDownSankey(
       const inverterIndex = inverterId === 1 ? wr1Index : wr2Index;
       
       // PV -> Inverter
-      if (pvToConsumption > 0.05) {
+      if (pvToConsumption > MIN_FLOW_THRESHOLD_W) {
         links.push({ source: pvIndex, target: inverterIndex, value: pvToConsumption });
       }
       
@@ -373,7 +393,7 @@ function buildDrillDownSankey(
       validChildren.forEach((child, i) => {
         if (child.powerW > 0) {
           const childShare = (child.powerW / totalConsumptionW) * pvToConsumption;
-          if (childShare > 0.05) {
+          if (childShare > MIN_FLOW_THRESHOLD_W) {
             links.push({ 
               source: inverterIndex, 
               target: childStartIndex + i, 
@@ -387,7 +407,7 @@ function buildDrillDownSankey(
       validChildren.forEach((child, i) => {
         if (child.powerW > 0) {
           const childShare = (child.powerW / totalConsumptionW) * pvToConsumption;
-          if (childShare > 0.05) {
+          if (childShare > MIN_FLOW_THRESHOLD_W) {
             links.push({ 
               source: pvIndex, 
               target: childStartIndex + i, 
@@ -404,21 +424,40 @@ function buildDrillDownSankey(
       const chargingBat2 = energyFlow.battery2Direction === 'charging';
       const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
       
-      if (numChargingBatteries > 0) {
-        const surplusPerBattery = surplusW / numChargingBatteries;
-        if (chargingBat1) {
-          // PV -> WR1 -> Bat1
-          links.push({ source: pvIndex, target: wr1Index, value: surplusPerBattery });
-          links.push({ source: wr1Index, target: bat1Index, value: surplusPerBattery });
-        }
-        if (chargingBat2) {
-          // PV -> WR2 -> Bat2
-          links.push({ source: pvIndex, target: wr2Index, value: surplusPerBattery });
-          links.push({ source: wr2Index, target: bat2Index, value: surplusPerBattery });
-        }
+      let totalChargePower = 0;
+      
+      // Calculate actual charge power for each battery (limited by MAX_BATTERY_CHARGE_W)
+      // If both batteries are charging, split surplus equally; if only one, give it all the surplus up to max rate
+      if (chargingBat1) {
+        const availableForBat1 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat1ChargePower = Math.min(availableForBat1, MAX_BATTERY_CHARGE_W);
+        // PV -> WR1 -> Bat1
+        links.push({ source: pvIndex, target: wr1Index, value: bat1ChargePower });
+        links.push({ source: wr1Index, target: bat1Index, value: bat1ChargePower });
+        totalChargePower += bat1ChargePower;
       }
       
-      // Export to grid if batteries not charging (through inverters)
+      if (chargingBat2) {
+        const availableForBat2 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat2ChargePower = Math.min(availableForBat2, MAX_BATTERY_CHARGE_W);
+        // PV -> WR2 -> Bat2
+        links.push({ source: pvIndex, target: wr2Index, value: bat2ChargePower });
+        links.push({ source: wr2Index, target: bat2Index, value: bat2ChargePower });
+        totalChargePower += bat2ChargePower;
+      }
+      
+      // Export remaining surplus to grid (if any) - after batteries are charging at max rate
+      const remainingSurplus = surplusW - totalChargePower;
+      if (remainingSurplus > MIN_FLOW_THRESHOLD_W) {
+        // Distribute grid export through both inverters proportionally (50/50)
+        const halfRemaining = remainingSurplus / 2;
+        links.push({ source: pvIndex, target: wr1Index, value: halfRemaining });
+        links.push({ source: wr1Index, target: gridIndex, value: halfRemaining });
+        links.push({ source: pvIndex, target: wr2Index, value: halfRemaining });
+        links.push({ source: wr2Index, target: gridIndex, value: halfRemaining });
+      }
+      
+      // If no batteries are charging, export all surplus to grid
       if (!chargingBat1 && !chargingBat2) {
         // Distribute grid export through both inverters proportionally (50/50)
         const halfSurplus = surplusW / 2;
@@ -442,7 +481,7 @@ function buildDrillDownSankey(
     // Battery 1 supplies ONLY if this is shared branch, through WR1
     if (inverterId === 1 && energyFlow.battery1Direction === 'discharging') {
       const fromBat1 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
-      if (fromBat1 > 0.05) {
+      if (fromBat1 > MIN_FLOW_THRESHOLD_W) {
         // Bat1 -> WR1
         links.push({ source: bat1Index, target: wr1Index, value: fromBat1 });
         // WR1 -> Children
@@ -459,7 +498,7 @@ function buildDrillDownSankey(
     // Battery 2 supplies ONLY if this is apartments branch, through WR2
     if (inverterId === 2 && energyFlow.battery2Direction === 'discharging') {
       const fromBat2 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
-      if (fromBat2 > 0.05) {
+      if (fromBat2 > MIN_FLOW_THRESHOLD_W) {
         // Bat2 -> WR2
         links.push({ source: bat2Index, target: wr2Index, value: fromBat2 });
         // WR2 -> Children
@@ -474,7 +513,7 @@ function buildDrillDownSankey(
     }
     
     // Remaining deficit from grid through appropriate inverter
-    if (remainingDeficit > 0.05) {
+    if (remainingDeficit > MIN_FLOW_THRESHOLD_W) {
       if (inverterId !== null) {
         const inverterIndex = inverterId === 1 ? wr1Index : wr2Index;
         // Grid -> Inverter

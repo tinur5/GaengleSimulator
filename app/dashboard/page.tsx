@@ -428,9 +428,9 @@ export default function Dashboard() {
     return 'idle'; // Battery not charging or discharging
   };
 
-  const netFlowPerWR = netFlow / 2; // Half of total net flow per inverter
-  const battery1Direction = getBatteryDirection(netFlowPerWR, battery1Soc);
-  const battery2Direction = getBatteryDirection(netFlowPerWR, battery2Soc);
+  // Use individual battery net flows for accurate direction status
+  const battery1Direction = getBatteryDirection(netFlow1, battery1Soc);
+  const battery2Direction = getBatteryDirection(netFlow2, battery2Soc);
 
   // Build Sankey data using hierarchical tree
   const sankeyData = useMemo(() => {
