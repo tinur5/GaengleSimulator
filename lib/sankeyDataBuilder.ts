@@ -162,7 +162,7 @@ function buildRootLevelSankey(
       }
     }
     
-    // PV surplus to batteries or grid
+    // PV surplus to batteries or grid (through inverters)
     if (surplusW > 0) {
       // Charging batteries - distribute based on which are charging
       const chargingBat1 = energyFlow.battery1Direction === 'charging';
@@ -172,16 +172,26 @@ function buildRootLevelSankey(
       if (numChargingBatteries > 0) {
         const surplusPerBattery = surplusW / numChargingBatteries;
         if (chargingBat1) {
-          links.push({ source: pvIndex, target: bat1Index, value: surplusPerBattery });
+          // PV -> WR1 -> Bat1
+          links.push({ source: pvIndex, target: wr1Index, value: surplusPerBattery });
+          links.push({ source: wr1Index, target: bat1Index, value: surplusPerBattery });
         }
         if (chargingBat2) {
-          links.push({ source: pvIndex, target: bat2Index, value: surplusPerBattery });
+          // PV -> WR2 -> Bat2
+          links.push({ source: pvIndex, target: wr2Index, value: surplusPerBattery });
+          links.push({ source: wr2Index, target: bat2Index, value: surplusPerBattery });
         }
       }
       
       // Export to grid (if batteries full or not charging)
+      // Grid export also goes through inverters
       if (!chargingBat1 && !chargingBat2) {
-        links.push({ source: pvIndex, target: gridIndex, value: surplusW });
+        // Distribute grid export through both inverters proportionally
+        const halfSurplus = surplusW / 2;
+        links.push({ source: pvIndex, target: wr1Index, value: halfSurplus });
+        links.push({ source: wr1Index, target: gridIndex, value: halfSurplus });
+        links.push({ source: pvIndex, target: wr2Index, value: halfSurplus });
+        links.push({ source: wr2Index, target: gridIndex, value: halfSurplus });
       }
     }
   }
@@ -397,16 +407,25 @@ function buildDrillDownSankey(
       if (numChargingBatteries > 0) {
         const surplusPerBattery = surplusW / numChargingBatteries;
         if (chargingBat1) {
-          links.push({ source: pvIndex, target: bat1Index, value: surplusPerBattery });
+          // PV -> WR1 -> Bat1
+          links.push({ source: pvIndex, target: wr1Index, value: surplusPerBattery });
+          links.push({ source: wr1Index, target: bat1Index, value: surplusPerBattery });
         }
         if (chargingBat2) {
-          links.push({ source: pvIndex, target: bat2Index, value: surplusPerBattery });
+          // PV -> WR2 -> Bat2
+          links.push({ source: pvIndex, target: wr2Index, value: surplusPerBattery });
+          links.push({ source: wr2Index, target: bat2Index, value: surplusPerBattery });
         }
       }
       
-      // Export to grid if batteries not charging
+      // Export to grid if batteries not charging (through inverters)
       if (!chargingBat1 && !chargingBat2) {
-        links.push({ source: pvIndex, target: gridIndex, value: surplusW });
+        // Distribute grid export through both inverters proportionally
+        const halfSurplus = surplusW / 2;
+        links.push({ source: pvIndex, target: wr1Index, value: halfSurplus });
+        links.push({ source: wr1Index, target: gridIndex, value: halfSurplus });
+        links.push({ source: pvIndex, target: wr2Index, value: halfSurplus });
+        links.push({ source: wr2Index, target: gridIndex, value: halfSurplus });
       }
     }
   }
