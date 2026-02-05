@@ -176,7 +176,7 @@ A: Die optimierte Strategie speichert Energie für die Nacht. Bei Defizit wird z
 A: Nein, diese App ist eine Simulation. Die echte Batterie-Steuerung erfolgt durch das Energiemanagementsystem.
 
 **F: Warum wird so viel ins Netz eingespeist?**
-A: Die PV ist sehr groß (66.88 kWp) und produziert im Sommer viel mehr als der Verbrauch.
+A: Die PV-Anlage (59.8 kWp mit Arres 3.2 / Premium L Modulen) produziert im Sommer viel mehr als der Verbrauch, insbesondere in der Mittagszeit.
 
 **F: Kann ich die Verbrauchsmuster ändern?**
 A: Nein, die App simuliert realistische Verbrauchsmuster basierend auf Jahreszeit, Wochentag und Uhrzeit.
