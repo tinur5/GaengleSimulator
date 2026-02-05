@@ -74,7 +74,9 @@ export default function PlausibilityWarnings({
   }
 
   // Check 7: PV production plausibility
-  if (pvProduction > 62) {
+  // Allow ~3.5% margin above installed capacity for measurement variations and optimal conditions
+  const pvCapacityLimit = 59.8 * 1.035; // 61.9 kW
+  if (pvProduction > pvCapacityLimit) {
     warnings.push(`PV-Produktion (${pvProduction.toFixed(1)} kW) übersteigt installierte Kapazität (59.8 kWp).`);
   }
 

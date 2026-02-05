@@ -46,9 +46,10 @@ The GaengleSimulator is a Next.js-based energy management dashboard for the MFH 
 - Inverters: 2× Goodwe GW29.9KN-ET (29.9 kW each)
 - Batteries: 2× GoodWe Lynx D - 20.0 kWh = 40 kWh total
 - Annual Consumption: ~43,743 kWh
-- Annual PV Production: ~125,000 kWh (adjusted for new capacity)
+- Annual PV Production: ~125,000 kWh (estimated based on capacity reduction from 66.88 to 59.8 kWp)
 
 **Optimized Strategy Results:**
+(Note: Metrics below are estimates based on proportional capacity adjustment; actual performance may vary)
 - ✅ **Autarky Rate: ~78%** (grid dependency reduced)
 - ✅ **Self-Consumption: ~28%** of PV production used directly
 - ✅ **Grid Import: ~9,600 kWh/year** (78% reduction vs. no PV)

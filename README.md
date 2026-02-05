@@ -50,7 +50,9 @@ npm start
 | Battery | 2× GoodWe Lynx D - 20.0 kWh (40 kWh total) |
 | Tenants | 3 residential units |
 | Annual Consumption | ~43,743 kWh |
-| Annual PV Production | ~125,000 kWh (adjusted for new capacity) |
+| Annual PV Production | ~125,000 kWh* |
+
+*Estimated based on proportional capacity adjustment (59.8 kWp vs. previous 66.88 kWp)
 
 ---
 
