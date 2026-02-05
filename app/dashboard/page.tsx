@@ -264,7 +264,9 @@ export default function Dashboard() {
       
       // WR1 (inverterId 1) -> Allgemein (common areas)
       // WR2 (inverterId 2) -> Wohnungen (apartments)
-      const pvPerBattery = pv / 2; // PV production split equally
+      // PV production split equally (each inverter connected to ~half the panels)
+      const pvPerBattery = pv / 2;
+      // Consumption assigned based on actual inverter load assignment
       const consumptionPerBattery = inverterId === 1 ? common : house;
       const netFlow = pvPerBattery - consumptionPerBattery;
       
