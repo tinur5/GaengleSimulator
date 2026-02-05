@@ -316,10 +316,19 @@ export default function Dashboard() {
   // This represents where we are at the beginning of this hour, before this hour's energy flows
   const battery1SocStart = selectedHour > 0 
     ? calculateHourlySoc(selectedDate, selectedHour - 1, 20, 1)
-    : calculateHourlySoc(selectedDate, 0, 20, 1);
+    : (() => {
+        // For midnight (hour 0), get the previous day's final hour (23)
+        const previousDay = new Date(selectedDate);
+        previousDay.setDate(previousDay.getDate() - 1);
+        return calculateHourlySoc(previousDay, 23, 20, 1);
+      })();
   const battery2SocStart = selectedHour > 0
     ? calculateHourlySoc(selectedDate, selectedHour - 1, 20, 2)
-    : calculateHourlySoc(selectedDate, 0, 20, 2);
+    : (() => {
+        const previousDay = new Date(selectedDate);
+        previousDay.setDate(previousDay.getDate() - 1);
+        return calculateHourlySoc(previousDay, 23, 20, 2);
+      })();
   
   const avgSocStart = (battery1SocStart + battery2SocStart) / 2;
   
@@ -349,18 +358,14 @@ export default function Dashboard() {
   const decisionReason = energyFlow.decisionReason || '';
   
   // Calculate current SOC after this hour's energy flow (for display)
-  // This shows the "live" state during the hour
-  const netBatteryFlowKwh = energyFlow.batteryCharge - energyFlow.batteryDischarge;
-  const socChangePercent = (netBatteryFlowKwh / totalBatteryCapacity) * 100 * building.efficiency;
-  
   // Calculate per-battery SOC based on actual loads
-  const house = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, selectedHour, dayOfWeek, month), 0);
-  const common = Object.values(getCommonAreaConsumption(selectedHour, month)).reduce((a: number, b: any) => a + b, 0);
+  const houseTotalConsumption = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, selectedHour, dayOfWeek, month), 0);
+  const commonAreaConsumption = Object.values(getCommonAreaConsumption(selectedHour, month)).reduce((a: number, b: any) => a + b, 0);
   
   // Battery 1 (WR1) handles common areas, Battery 2 (WR2) handles apartments
   const pvPerBattery = pvProduction / 2;
-  const netFlow1 = pvPerBattery - common;  // WR1/Battery 1
-  const netFlow2 = pvPerBattery - house;   // WR2/Battery 2
+  const netFlow1 = pvPerBattery - commonAreaConsumption;  // WR1/Battery 1
+  const netFlow2 = pvPerBattery - houseTotalConsumption;   // WR2/Battery 2
   
   // Calculate individual battery SOC changes
   let battery1SocChange = 0;
