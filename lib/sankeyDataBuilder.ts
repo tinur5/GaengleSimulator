@@ -245,6 +245,18 @@ function buildRootLevelSankey(
 }
 
 /**
+ * Determine which inverter should be used for a given focus node
+ */
+function getInverterForNode(nodeId: string): 1 | 2 | null {
+  const isSharedBranch = nodeId === 'shared' || nodeId.startsWith('shared_');
+  const isApartmentsBranch = nodeId === 'apartments' || nodeId.startsWith('apartment_');
+  
+  if (isSharedBranch) return 1; // WR1 for shared
+  if (isApartmentsBranch) return 2; // WR2 for apartments
+  return null; // No specific inverter
+}
+
+/**
  * Build drill-down Sankey: Show children of focus node with proper energy sources
  */
 function buildDrillDownSankey(
@@ -336,12 +348,11 @@ function buildDrillDownSankey(
     const pvToConsumption = Math.min(pvAvailableW, totalConsumptionW);
     
     // Determine which inverter to use based on branch
-    const isSharedBranch = focusNode.id === 'shared' || focusNode.id.startsWith('shared_');
-    const isApartmentsBranch = focusNode.id === 'apartments' || focusNode.id.startsWith('apartment_');
+    const inverterId = getInverterForNode(focusNode.id);
     
     // Route through appropriate inverter
-    if (isSharedBranch || isApartmentsBranch) {
-      const inverterIndex = isSharedBranch ? wr1Index : wr2Index;
+    if (inverterId !== null) {
+      const inverterIndex = inverterId === 1 ? wr1Index : wr2Index;
       
       // PV -> Inverter
       if (pvToConsumption > 0.05) {
@@ -405,14 +416,12 @@ function buildDrillDownSankey(
   // Battery 1 (inverterId: 1) supplies ONLY shared (Allgemeinteil)
   // Battery 2 (inverterId: 2) supplies ONLY apartments (Wohnungen)
   if (deficitW > 0) {
-    // Determine if this is a shared or apartments branch
-    const isSharedBranch = focusNode.id === 'shared' || focusNode.id.startsWith('shared_');
-    const isApartmentsBranch = focusNode.id === 'apartments' || focusNode.id.startsWith('apartment_');
+    const inverterId = getInverterForNode(focusNode.id);
     
     let remainingDeficit = deficitW;
     
     // Battery 1 supplies ONLY if this is shared branch, through WR1
-    if (isSharedBranch && energyFlow.battery1Direction === 'discharging') {
+    if (inverterId === 1 && energyFlow.battery1Direction === 'discharging') {
       const fromBat1 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat1 > 0.05) {
         // Bat1 -> WR1
@@ -429,7 +438,7 @@ function buildDrillDownSankey(
     }
     
     // Battery 2 supplies ONLY if this is apartments branch, through WR2
-    if (isApartmentsBranch && energyFlow.battery2Direction === 'discharging') {
+    if (inverterId === 2 && energyFlow.battery2Direction === 'discharging') {
       const fromBat2 = Math.min(remainingDeficit, MAX_BATTERY_DISCHARGE_W);
       if (fromBat2 > 0.05) {
         // Bat2 -> WR2
@@ -447,8 +456,8 @@ function buildDrillDownSankey(
     
     // Remaining deficit from grid through appropriate inverter
     if (remainingDeficit > 0.05) {
-      if (isSharedBranch || isApartmentsBranch) {
-        const inverterIndex = isSharedBranch ? wr1Index : wr2Index;
+      if (inverterId !== null) {
+        const inverterIndex = inverterId === 1 ? wr1Index : wr2Index;
         // Grid -> Inverter
         links.push({ source: gridIndex, target: inverterIndex, value: remainingDeficit });
         // Inverter -> Children
