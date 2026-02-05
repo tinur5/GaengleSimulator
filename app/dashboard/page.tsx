@@ -825,7 +825,7 @@ export default function Dashboard() {
           <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-green-500">
             <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
               🌱 AUTARKIEGRAD
-              <InfoTooltip text="Autarkiegrad (Selbstversorgungsgrad) über 24 Stunden. Zeigt, wieviel Prozent des Strombedarfs aus eigener PV-Produktion und Batteriespeicher gedeckt wird. 100% = vollständig autark, 0% = komplett netzabhängig. Formel: ((Verbrauch - Netzbezug) / Verbrauch) × 100" />
+              <InfoTooltip text="Autarkiegrad (Selbstversorgungsgrad) über 24 Stunden. Zeigt, wie viel Prozent des Strombedarfs aus eigener PV-Produktion und Batteriespeicher gedeckt wird. 100% = vollständig autark, 0% = komplett netzabhängig. Formel: ((Verbrauch - Netzbezug) / Verbrauch) × 100" />
             </h3>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{selfSufficiency.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
