@@ -168,12 +168,15 @@ function buildRootLevelSankey(
       // Charging batteries - distribute based on which are charging
       const chargingBat1 = energyFlow.battery1Direction === 'charging';
       const chargingBat2 = energyFlow.battery2Direction === 'charging';
+      const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
       
       let totalChargePower = 0;
       
       // Calculate actual charge power for each battery (limited by MAX_BATTERY_CHARGE_W)
+      // If both batteries are charging, split surplus equally; if only one, give it all the surplus up to max rate
       if (chargingBat1) {
-        const bat1ChargePower = Math.min(surplusW / 2, MAX_BATTERY_CHARGE_W);
+        const availableForBat1 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat1ChargePower = Math.min(availableForBat1, MAX_BATTERY_CHARGE_W);
         // PV -> WR1 -> Bat1
         links.push({ source: pvIndex, target: wr1Index, value: bat1ChargePower });
         links.push({ source: wr1Index, target: bat1Index, value: bat1ChargePower });
@@ -181,7 +184,8 @@ function buildRootLevelSankey(
       }
       
       if (chargingBat2) {
-        const bat2ChargePower = Math.min(surplusW / 2, MAX_BATTERY_CHARGE_W);
+        const availableForBat2 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat2ChargePower = Math.min(availableForBat2, MAX_BATTERY_CHARGE_W);
         // PV -> WR2 -> Bat2
         links.push({ source: pvIndex, target: wr2Index, value: bat2ChargePower });
         links.push({ source: wr2Index, target: bat2Index, value: bat2ChargePower });
@@ -417,12 +421,15 @@ function buildDrillDownSankey(
     if (surplusW > 0) {
       const chargingBat1 = energyFlow.battery1Direction === 'charging';
       const chargingBat2 = energyFlow.battery2Direction === 'charging';
+      const numChargingBatteries = (chargingBat1 ? 1 : 0) + (chargingBat2 ? 1 : 0);
       
       let totalChargePower = 0;
       
       // Calculate actual charge power for each battery (limited by MAX_BATTERY_CHARGE_W)
+      // If both batteries are charging, split surplus equally; if only one, give it all the surplus up to max rate
       if (chargingBat1) {
-        const bat1ChargePower = Math.min(surplusW / 2, MAX_BATTERY_CHARGE_W);
+        const availableForBat1 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat1ChargePower = Math.min(availableForBat1, MAX_BATTERY_CHARGE_W);
         // PV -> WR1 -> Bat1
         links.push({ source: pvIndex, target: wr1Index, value: bat1ChargePower });
         links.push({ source: wr1Index, target: bat1Index, value: bat1ChargePower });
@@ -430,7 +437,8 @@ function buildDrillDownSankey(
       }
       
       if (chargingBat2) {
-        const bat2ChargePower = Math.min(surplusW / 2, MAX_BATTERY_CHARGE_W);
+        const availableForBat2 = numChargingBatteries === 2 ? surplusW / 2 : surplusW;
+        const bat2ChargePower = Math.min(availableForBat2, MAX_BATTERY_CHARGE_W);
         // PV -> WR2 -> Bat2
         links.push({ source: pvIndex, target: wr2Index, value: bat2ChargePower });
         links.push({ source: wr2Index, target: bat2Index, value: bat2ChargePower });
