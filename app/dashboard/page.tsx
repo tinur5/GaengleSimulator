@@ -408,13 +408,15 @@ export default function Dashboard() {
   const battery2Energy = (battery2Soc / 100) * building.batteries[1].capacityKwh;
   const totalBatteryEnergy = battery1Energy + battery2Energy;
 
-  // Calculate battery direction (charging/discharging/idle)
-  const getBatteryDirection = (netFlow: number, soc: number): 'charging' | 'discharging' | 'idle' => {
+  // Calculate battery direction (charging/discharging/idle) with reason
+  const getBatteryDirection = (netFlow: number, soc: number): { direction: 'charging' | 'discharging' | 'idle'; reason: string } => {
     const config = strategyConfig;
     const isNight = selectedHour >= config.nightStart || selectedHour < config.nightEnd;
     
     if (netFlow > 0.05 && soc < config.maxSoc) {
-      return 'charging'; // PV surplus and battery not full
+      return { direction: 'charging', reason: 'PV-Überschuss vorhanden' };
+    } else if (netFlow > 0.05 && soc >= config.maxSoc) {
+      return { direction: 'idle', reason: `Batterie bereits voll (${config.maxSoc}%)` };
     } else if (netFlow < -0.05) {
       // Check if battery should be used based on strategy
       const shouldUseBattery = isNight 
@@ -422,15 +424,28 @@ export default function Dashboard() {
         : soc > config.minSoc;
       
       if (shouldUseBattery) {
-        return 'discharging'; // Deficit and battery is being used
+        return { direction: 'discharging', reason: 'Stromdefizit wird ausgeglichen' };
+      } else {
+        // Battery is too low to discharge
+        if (isNight) {
+          return { direction: 'idle', reason: `SOC nicht über Nacht-Schwelle (${soc.toFixed(0)}% ≤ ${config.targetNightSoc}%)` };
+        } else {
+          return { direction: 'idle', reason: `SOC nicht über Minimum (${soc.toFixed(0)}% ≤ ${config.minSoc}%)` };
+        }
       }
+    } else {
+      // Net flow is very small
+      return { direction: 'idle', reason: 'Kein nennenswerter Energiefluss' };
     }
-    return 'idle'; // Battery not charging or discharging
   };
 
   // Use individual battery net flows for accurate direction status
-  const battery1Direction = getBatteryDirection(netFlow1, battery1Soc);
-  const battery2Direction = getBatteryDirection(netFlow2, battery2Soc);
+  const battery1Result = getBatteryDirection(netFlow1, battery1Soc);
+  const battery2Result = getBatteryDirection(netFlow2, battery2Soc);
+  const battery1Direction = battery1Result.direction;
+  const battery2Direction = battery2Result.direction;
+  const battery1Reason = battery1Result.reason;
+  const battery2Reason = battery2Result.reason;
 
   // Build Sankey data using hierarchical tree
   const sankeyData = useMemo(() => {
@@ -1110,12 +1125,14 @@ export default function Dashboard() {
                 soc={battery1Soc} 
                 capacity={building.batteries[0].capacityKwh}
                 direction={battery1Direction}
+                reason={battery1Reason}
               />
               <SocBar 
                 label="Wechselrichter 2" 
                 soc={battery2Soc} 
                 capacity={building.batteries[1].capacityKwh}
                 direction={battery2Direction}
+                reason={battery2Reason}
               />
             </div>
           </div>
