@@ -428,9 +428,9 @@ export default function Dashboard() {
       } else {
         // Battery is too low to discharge
         if (isNight) {
-          return { direction: 'idle', reason: `SOC zu niedrig für Nachtentladung (${soc.toFixed(0)}% ≤ ${config.targetNightSoc}%)` };
+          return { direction: 'idle', reason: `SOC nicht über Nacht-Schwelle (${soc.toFixed(0)}% ≤ ${config.targetNightSoc}%)` };
         } else {
-          return { direction: 'idle', reason: `SOC zu niedrig (${soc.toFixed(0)}% ≤ ${config.minSoc}%)` };
+          return { direction: 'idle', reason: `SOC nicht über Minimum (${soc.toFixed(0)}% ≤ ${config.minSoc}%)` };
         }
       }
     } else {
