@@ -6,9 +6,10 @@ interface SocBarProps {
   soc: number; // 0-100
   capacity: number; // in kWh
   direction?: 'charging' | 'discharging' | 'idle'; // optional indicator
+  reason?: string; // optional reason for the current status
 }
 
-export default function SocBar({ label, soc, capacity, direction = 'idle' }: SocBarProps) {
+export default function SocBar({ label, soc, capacity, direction = 'idle', reason }: SocBarProps) {
   const pct = Math.max(0, Math.min(100, Number(soc)));
   const energyStored = (pct / 100) * capacity;
   const color = pct > 66 ? 'bg-green-500' : pct > 33 ? 'bg-yellow-500' : 'bg-red-500';
@@ -47,6 +48,11 @@ export default function SocBar({ label, soc, capacity, direction = 'idle' }: Soc
         </div>
         <span className={`font-bold ${textColor}`}>{pct.toFixed(0)}%</span>
       </div>
+      {reason && (
+        <div className="mb-2 text-xs text-gray-600 italic">
+          {reason}
+        </div>
+      )}
       <div className={`w-full ${bgColor} rounded-lg h-8 overflow-hidden border-2 ${borderColor} shadow-sm`}>
         <div 
           className={`${color} h-full transition-all duration-300 flex items-center justify-end pr-2`} 
