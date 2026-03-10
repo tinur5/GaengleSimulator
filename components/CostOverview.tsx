@@ -2,10 +2,11 @@
 'use client';
 
 import { useState } from 'react';
-import { LKWTariffType, getTariffModel } from '../lib/lkwTariffs';
+import { LKWTariffType, getTariffModel, NETWORK_USAGE_FEES } from '../lib/lkwTariffs';
 import { 
   calculateDailyCost, 
   estimateMonthlyCostFromDay,
+  estimateAnnualAverageMonthlyCost,
   DailyCostSummary 
 } from '../lib/costCalculation';
 
@@ -45,6 +46,9 @@ export default function CostOverview({
   
   const monthlyCost = estimateMonthlyCostFromDay(dailyCost, daysInMonth);
 
+  // Mittlere monatliche Kosten über das ganze Jahr
+  const annualAvgMonthlyCost = estimateAnnualAverageMonthlyCost(dailyCost);
+
   const tariffModel = getTariffModel(selectedTariff);
 
   // Calculate grid import/export for current hour
@@ -70,6 +74,9 @@ export default function CostOverview({
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-green-700">
             Netto: ~CHF {monthlyCost.netCostCHF.toFixed(2)}/Monat
+          </span>
+          <span className="text-xs text-gray-500">
+            Ø Jahr: ~CHF {annualAvgMonthlyCost.netCostCHF.toFixed(2)}/Monat
           </span>
           <span className="text-xs font-medium text-gray-700">
             {isExpanded ? '▼ Schließen' : '▶ Öffnen'}
@@ -195,6 +202,88 @@ export default function CostOverview({
               <strong>Hinweis:</strong> Diese Schätzung basiert auf dem aktuellen Tag und 
               multipliziert die Tageskosten mit {daysInMonth} Tagen. Tatsächliche Monatskosten 
               können je nach Wetter, Verbrauch und Tarifschwankungen variieren.
+            </div>
+          </div>
+
+          {/* Mittlere Jahreskosten */}
+          <div className="bg-white rounded-lg p-4 border border-blue-200">
+            <h4 className="font-bold text-sm text-blue-800 mb-3 flex items-center gap-2">
+              📅 Mittlere monatliche Kosten über das ganze Jahr
+            </h4>
+            <p className="text-xs text-gray-500 mb-3">
+              {(() => {
+                const summerRate = (NETWORK_USAGE_FEES.summer + NETWORK_USAGE_FEES.swissgridUsage + NETWORK_USAGE_FEES.swissgridReserve + NETWORK_USAGE_FEES.efficiencySurcharge).toFixed(2);
+                const winterRate = (NETWORK_USAGE_FEES.winter + NETWORK_USAGE_FEES.swissgridUsage + NETWORK_USAGE_FEES.swissgridReserve + NETWORK_USAGE_FEES.efficiencySurcharge).toFixed(2);
+                return `Jahresdurchschnitt: Sommer- (Apr–Sep, ${summerRate} Rp./kWh) und Winter-Netzpreise (Okt–März, ${winterRate} Rp./kWh) je 6 Monate, Ø 30 Tage/Monat.`;
+              })()}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h5 className="font-bold text-xs text-red-800 mb-2">📤 AUSGABEN (Ø/Monat)</h5>
+                <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                  <span className="text-sm">Energiekosten:</span>
+                  <span className="font-bold text-blue-700">
+                    CHF {annualAvgMonthlyCost.energyCostCHF.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-orange-50 rounded">
+                  <span className="text-sm">Netznutzung (Ø Sommer/Winter):</span>
+                  <span className="font-bold text-orange-700">
+                    CHF {annualAvgMonthlyCost.networkCostCHF.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                  <span className="text-sm">Fixkosten:</span>
+                  <span className="font-bold text-gray-700">
+                    CHF {annualAvgMonthlyCost.fixedCostCHF.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-red-100 rounded border-2 border-red-300">
+                  <span className="font-bold text-sm">Total Ausgaben:</span>
+                  <span className="font-bold text-lg text-red-700">
+                    CHF {annualAvgMonthlyCost.totalCostCHF.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h5 className="font-bold text-xs text-green-800 mb-2">📥 EINNAHMEN (Ø/Monat)</h5>
+                <div className="flex justify-between items-center p-2 bg-green-50 rounded">
+                  <span className="text-sm">Einspeisevergütung:</span>
+                  <span className="font-bold text-green-700">
+                    CHF {annualAvgMonthlyCost.feedInRevenueCHF.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-green-50 rounded opacity-50">
+                  <span className="text-sm text-gray-400">-</span>
+                  <span className="font-bold text-gray-400">-</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-green-50 rounded opacity-50">
+                  <span className="text-sm text-gray-400">-</span>
+                  <span className="font-bold text-gray-400">-</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-green-100 rounded border-2 border-green-300">
+                  <span className="font-bold text-sm">Total Einnahmen:</span>
+                  <span className="font-bold text-lg text-green-700">
+                    CHF {annualAvgMonthlyCost.feedInRevenueCHF.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-indigo-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <span className="font-bold text-sm text-indigo-900">💵 NETTO Ø/Monat (ganzes Jahr):</span>
+                  <p className="text-xs text-indigo-700 mt-1">
+                    Mittlere monatliche Nettokosten inkl. 8.1% MwSt.
+                  </p>
+                </div>
+                <span className="font-bold text-2xl text-indigo-900">
+                  CHF {annualAvgMonthlyCost.netCostCHF.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
 

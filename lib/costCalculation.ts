@@ -355,6 +355,62 @@ export function calculateMonthlyCost(
 }
 
 /**
+ * Schätzt mittlere monatliche Kosten über das ganze Jahr
+ * Berücksichtigt Sommer- und Winterpreise für die Netznutzung
+ * (6 Sommermonate April-September, 6 Wintermonate Oktober-März)
+ */
+export function estimateAnnualAverageMonthlyCost(
+  dailyCost: DailyCostSummary,
+  averageDaysPerMonth: number = 30.44
+): MonthlyCostSummary {
+  const year = dailyCost.date.getFullYear();
+
+  // Netznutzungspreis für Sommer (z.B. Juli = Monat 7)
+  const summerNetworkPriceRpKwh = calculateHourlyNetworkPrice(7);
+  // Netznutzungspreis für Winter (z.B. Januar = Monat 1)
+  const winterNetworkPriceRpKwh = calculateHourlyNetworkPrice(1);
+  // Jahres-Durchschnitt (6 Sommermonate, 6 Wintermonate)
+  const avgNetworkPriceRpKwh = (summerNetworkPriceRpKwh + winterNetworkPriceRpKwh) / 2;
+
+  const dailyImportKwh = dailyCost.totalImportKwh;
+  const dailyExportKwh = dailyCost.totalExportKwh;
+
+  // Monatliche Mengen mit durchschnittlicher Monatstagezahl
+  const totalImportKwh = dailyImportKwh * averageDaysPerMonth;
+  const totalExportKwh = dailyExportKwh * averageDaysPerMonth;
+  const netImportKwh = totalImportKwh - totalExportKwh;
+
+  // Energiekosten bleiben unverändert (nicht saisonal)
+  const energyCostCHF = (dailyCost.totalEnergyCost / 100) * averageDaysPerMonth;
+  // Netzkosten mit Jahresdurchschnitt
+  const networkCostCHF = (dailyImportKwh * avgNetworkPriceRpKwh / 100) * averageDaysPerMonth;
+  const feedInRevenueCHF = (dailyCost.totalFeedInRevenue / 100) * averageDaysPerMonth;
+  const fixedCostCHF = NETWORK_USAGE_FEES.meterFee + NETWORK_USAGE_FEES.basicFee;
+
+  const totalCostExclVat = energyCostCHF + networkCostCHF + fixedCostCHF;
+  const totalCostCHF = totalCostExclVat * (1 + VAT_RATE);
+  const feedInRevenueCHFWithVat = feedInRevenueCHF * (1 + VAT_RATE);
+  const netCostCHF = totalCostCHF - feedInRevenueCHFWithVat;
+  const avgCostPerKwh = totalImportKwh > 0 ? totalCostCHF / totalImportKwh : 0;
+
+  return {
+    month: 0, // 0 = Jahresdurchschnitt
+    year,
+    totalImportKwh,
+    totalExportKwh,
+    netImportKwh,
+    energyCostCHF: energyCostCHF * (1 + VAT_RATE),
+    networkCostCHF: networkCostCHF * (1 + VAT_RATE),
+    fixedCostCHF,
+    totalCostCHF,
+    feedInRevenueCHF: feedInRevenueCHFWithVat,
+    netCostCHF,
+    totalCostExclVat,
+    avgCostPerKwh,
+  };
+}
+
+/**
  * Schätzt Monatskosten basierend auf einem Tag (vereinfacht)
  */
 export function estimateMonthlyCostFromDay(
