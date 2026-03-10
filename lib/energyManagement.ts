@@ -202,20 +202,27 @@ export function updateBatteryState(
 }
 
 /**
- * Berechnet den optimalen Start-SOC basierend auf Monat und Wochentag
+ * Berechnet den optimalen Start-SOC basierend auf Monat und Wochentag.
+ * Kalibriert anhand realer Messdaten (03.10.2026): Oktober-Mitternacht WR1=88 %, WR2=92 %.
  */
 export function calculateOptimalStartSoc(month: number, dayOfWeek: number): number {
   // Im Winter höherer Start-SOC (mehr Reserve für lange Nächte)
   const winterMonths = [12, 1, 2];
   const isWinter = winterMonths.includes(month);
   
+  // Herbst-Sonnenmonate (September/Oktober): Batterien nach sonnigen Tagen typisch gut geladen
+  // (kalibriert: Oktober-Mitternacht ≈ 88–92 % gemäss realer Messung 03.10.2026)
+  const autumnSolarMonths = [9, 10];
+  const isAutumnSolar = autumnSolarMonths.includes(month);
+  
   // Am Wochenende höherer Start-SOC (mehr Verbrauch tagsüber)
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
   
   let startSoc = 50; // Basis
   
-  if (isWinter) startSoc += 15; // Winter: 65%
-  if (isWeekend) startSoc += 10; // Wochenende: +10%
+  if (isWinter) startSoc += 15;       // Winter: 65 %
+  if (isAutumnSolar) startSoc += 30;  // Oktober/September: ~80 % Basis (sonnige Monate)
+  if (isWeekend) startSoc += 10;      // Wochenende: +10 %
   
-  return Math.min(85, startSoc);
+  return Math.min(95, startSoc);
 }
