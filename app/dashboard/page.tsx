@@ -124,10 +124,12 @@ export default function Dashboard() {
   };
 
   const getCommonAreaConsumption = (hour: number, month: number) => {
-    const poolActive = hour >= 8 && hour <= 22;
-    const poolPower = poolActive 
-      ? (month === 12 || month === 1 || month === 2 ? 0.3 : month === 3 || month === 11 ? 1.2 : 2.5) 
-      : 0.05;
+    // Pool: nur berücksichtigen wenn Gebäude einen Pool hat (reale Daten zeigen keinen signifikanten Pool-Verbrauch)
+    const hasPool = building.hasPool ?? false;
+    const poolActive = hasPool && hour >= 8 && hour <= 22;
+    const poolPower = poolActive
+      ? (month === 12 || month === 1 || month === 2 ? 0.3 : month === 3 || month === 11 ? 1.2 : 2.5)
+      : 0;
     const garage = hour >= 6 && hour <= 23 ? 0.3 : 0.05;
     let heating = 0;
     if (month === 12 || month === 1 || month === 2) {
@@ -137,7 +139,8 @@ export default function Dashboard() {
     } else if (month >= 4 && month <= 10) {
       heating = (hour >= 6 && hour <= 22) ? 0.5 : 0.1;
     }
-    let boiler = 0.2;
+    // Boiler-Grundlast reduziert auf realistischen Wert (kalibriert anhand realer Nachtmessung 03.10.2026)
+    let boiler = 0.05;
     if ((hour >= 6 && hour <= 8) || (hour >= 18 && hour <= 21)) {
       boiler = 1.2;
     } else if (hour >= 9 && hour <= 17) {
@@ -236,15 +239,29 @@ export default function Dashboard() {
     const isWinter = winterMonths.includes(prevMonth);
     const isWeekend = prevDayOfWeek === 0 || prevDayOfWeek === 6;
     
-    let startSoc = 50; // Basis
-    if (isWinter) startSoc += 15; // Winter: längere Nächte
-    if (isWeekend) startSoc += 10; // Wochenende: mehr Tagesverbrauch
+    // Kalibrierte Mitternacht-SOC-Werte aus realen Messdaten (03.10.2026)
+    // WR1 = 88 %, WR2 = 92 % – repräsentiert typische Batteriesituation nach einem
+    // sonnigen Oktober-Tag mit vollständiger Ladung am Vormittag.
+    // Schlüssel = Monatsnummer (1=Jan … 10=Okt … 12=Dez)
+    const calibratedMidnightSoc: Record<number, { inv1: number; inv2: number }> = {
+      10: { inv1: 88, inv2: 92 }, // Oktober (Monat 10): direkt aus realen Messdaten 03.10.2026
+    };
+    const calibrated = calibratedMidnightSoc[prevMonth];
     
-    // Different starting SOC based on load profile
-    // WR1 (Allgemein) has more consistent load from heating/pool
-    // WR2 (Wohnungen) has more variable tenant consumption
-    const batteryVariation = inverterId === 1 ? -5 : 3;
-    startSoc = Math.min(85, Math.max(20, startSoc + batteryVariation));
+    let startSoc: number;
+    if (calibrated) {
+      // Verwende kalibrierte Werte aus realen Messdaten
+      startSoc = inverterId === 1 ? calibrated.inv1 : calibrated.inv2;
+    } else {
+      let baseSoc = 50; // Basis
+      if (isWinter) baseSoc += 15; // Winter: längere Nächte
+      if (isWeekend) baseSoc += 10; // Wochenende: mehr Tagesverbrauch
+      // Different starting SOC based on load profile
+      // WR1 (Allgemein) has more consistent load from heating/pool
+      // WR2 (Wohnungen) has more variable tenant consumption
+      const batteryVariation = inverterId === 1 ? -5 : 3;
+      startSoc = Math.min(85, Math.max(20, baseSoc + batteryVariation));
+    }
     
     let soc = startSoc;
     

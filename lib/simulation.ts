@@ -107,7 +107,7 @@ export function calculatePVProduction(
     7: { sunrise: 5, sunset: 21.25 },
     8: { sunrise: 5.75, sunset: 20.5 },
     9: { sunrise: 6.75, sunset: 19.25 },
-    10: { sunrise: 7.75, sunset: 18 },
+    10: { sunrise: 7.25, sunset: 18.5 }, // Kalibriert: reale Daten zeigen PV-Start ~07:30 (03.10.2026)
     11: { sunrise: 8.5, sunset: 17 },
     12: { sunrise: 8.75, sunset: 16.75 }
   };
@@ -115,7 +115,7 @@ export function calculatePVProduction(
   // Realistische Cloud-Coverage je nach Monat (Schweiz)
   const cloudCoverByMonth: { [key: number]: number } = {
     1: 0.65, 2: 0.62, 3: 0.58, 4: 0.55, 5: 0.50, 6: 0.48,
-    7: 0.45, 8: 0.48, 9: 0.52, 10: 0.60, 11: 0.65, 12: 0.68
+    7: 0.45, 8: 0.48, 9: 0.52, 10: 0.50, 11: 0.65, 12: 0.68 // Oktober kalibriert (reale Messdaten 03.10.2026: ~0.43 an klarem Tag, 0.50 als Monatsdurchschnitt)
   };
   
   const sunTime = sunTimes[month];
