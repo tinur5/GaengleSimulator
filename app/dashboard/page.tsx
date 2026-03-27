@@ -1031,9 +1031,11 @@ export default function Dashboard() {
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
               <span className="font-semibold">Momentanleistung</span>
             </div>
-            <div className="mt-2">
-              <MetricSparkline data={pvData} currentHour={selectedHour} color="orange" />
-            </div>
+            {!isLiveActive && (
+              <div className="mt-2">
+                <MetricSparkline data={pvData} currentHour={selectedHour} color="orange" />
+              </div>
+            )}
           </div>
 
           <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-red-400">
@@ -1045,31 +1047,35 @@ export default function Dashboard() {
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
               <span className="font-semibold">Momentanleistung</span>
             </div>
-            <div className="mt-1 md:mt-2 text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-0.5">
-              <div className="flex justify-between">
-                <span>Wohn.:</span>
-                <span className="font-semibold">{houseConsumption.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Pool:</span>
-                <span className="font-semibold">{commonAreaData.pool.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Heiz.:</span>
-                <span className="font-semibold">{commonAreaData.heating.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Garage:</span>
-                <span className="font-semibold">{commonAreaData.garage.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Boiler:</span>
-                <span className="font-semibold">{commonAreaData.boiler.toFixed(1)}</span>
-              </div>
-            </div>
-            <div className="mt-2">
-              <MetricSparkline data={consumptionData} currentHour={selectedHour} color="red" />
-            </div>
+            {!isLiveActive && (
+              <>
+                <div className="mt-1 md:mt-2 text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>Wohn.:</span>
+                    <span className="font-semibold">{houseConsumption.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Pool:</span>
+                    <span className="font-semibold">{commonAreaData.pool.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Heiz.:</span>
+                    <span className="font-semibold">{commonAreaData.heating.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Garage:</span>
+                    <span className="font-semibold">{commonAreaData.garage.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Boiler:</span>
+                    <span className="font-semibold">{commonAreaData.boiler.toFixed(1)}</span>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <MetricSparkline data={consumptionData} currentHour={selectedHour} color="red" />
+                </div>
+              </>
+            )}
           </div>
 
           <div className={`rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 ${netFlow > 0 ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-400'}`}>
@@ -1097,30 +1103,35 @@ export default function Dashboard() {
                 Batterie-SOC nicht verfügbar (simuliert)
               </div>
             )}
-            <div className="mt-2">
-              <MetricSparkline data={socData} currentHour={selectedHour} color="purple" />
-            </div>
+            {!isLiveActive && (
+              <div className="mt-2">
+                <MetricSparkline data={socData} currentHour={selectedHour} color="purple" />
+              </div>
+            )}
           </div>
 
-          <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-green-500">
-            <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
-              🌱 AUTARKIEGRAD
-              <InfoTooltip text="Autarkiegrad (Selbstversorgungsgrad) über 24 Stunden. Zeigt, wie viel Prozent des Strombedarfs aus eigener PV-Produktion und Batteriespeicher gedeckt wird. 100% = vollständig autark, 0% = komplett netzabhängig. Formel: ((Verbrauch - Netzbezug) / Verbrauch) × 100" />
-            </h3>
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{selfSufficiency.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
-            <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
-              <span className="font-semibold">24h Durchschnitt</span>
+          {!isLiveActive && (
+            <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-2 sm:p-3 md:p-4 border-l-4 border-green-500">
+              <h3 className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center">
+                🌱 AUTARKIEGRAD
+                <InfoTooltip text="Autarkiegrad (Selbstversorgungsgrad) über 24 Stunden. Zeigt, wie viel Prozent des Strombedarfs aus eigener PV-Produktion und Batteriespeicher gedeckt wird. 100% = vollständig autark, 0% = komplett netzabhängig. Formel: ((Verbrauch - Netzbezug) / Verbrauch) × 100" />
+              </h3>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 mt-1 md:mt-2">{selfSufficiency.toFixed(1)} <span className="text-xs sm:text-sm">%</span></p>
+              <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
+                <span className="font-semibold">24h Durchschnitt</span>
+              </div>
+              <div className="mt-2 bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.max(0, selfSufficiency))}%` }}
+                ></div>
+              </div>
             </div>
-            <div className="mt-2 bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, Math.max(0, selfSufficiency))}%` }}
-              ></div>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Detaillierte Verbrauchsübersicht */}
+        {/* Detaillierte Verbrauchsübersicht – nur im Simulator-Modus anzeigen */}
+        {!isLiveActive && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-6">
           <div className="bg-white rounded-lg shadow p-2 md:p-3">
             <h3 className="text-xs md:text-sm font-bold text-gray-700 mb-1 md:mb-2">👨‍👩‍👧‍👦 Graf (VW ID4)</h3>
@@ -1213,8 +1224,10 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Shared Loads Explanation */}
+        {/* Shared Loads Explanation – nur im Simulator-Modus anzeigen */}
+        {!isLiveActive && (
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-lg shadow p-3 mb-4 md:mb-6">
           <div className="flex items-start gap-2">
             <span className="text-xl">🏢</span>
@@ -1258,6 +1271,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
@@ -1333,7 +1347,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Charts Row 2 */}
+        {/* Charts Row 2 – nur im Simulator-Modus anzeigen */}
+        {!isLiveActive && (
         <div className="grid grid-cols-1 gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="bg-white rounded-lg shadow p-2 md:p-4">
             <h2 className="text-sm md:text-lg font-bold mb-2 md:mb-3">💡 24h Haushalt-Verbrauch</h2>
@@ -1348,14 +1363,17 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Annual Stats */}
+        {/* Annual Stats – nur im Simulator-Modus anzeigen */}
+        {!isLiveActive && (
         <div className="mb-4 md:mb-6">
           <AnnualConsumptionStats
             tenants={tenants}
             calculateTenantConsumption={calculateTenantConsumption}
           />
         </div>
+        )}
 
         {/* Info Panels */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
