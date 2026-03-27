@@ -10,6 +10,7 @@ interface HaStatusBannerProps {
   errorMessage?: string;
   isFallback: boolean;
   isStale: boolean;
+  warnings?: string[];
 }
 
 export default function HaStatusBanner({
@@ -20,6 +21,7 @@ export default function HaStatusBanner({
   errorMessage,
   isFallback,
   isStale,
+  warnings = [],
 }: HaStatusBannerProps) {
   if (mode === 'simulator' && !isFallback) {
     // Simulator mode chosen explicitly – show subtle info badge only
@@ -68,31 +70,57 @@ export default function HaStatusBanner({
       second: '2-digit',
     });
 
+    // Actionable warnings (exclude the always-present SOC note from the count shown to users)
+    const fetchWarnings = warnings.filter(
+      (w) => !w.startsWith('Battery SOC sensor not mapped'),
+    );
+
     return (
-      <div
-        className={`mb-4 flex items-center gap-2 rounded-lg px-4 py-2 text-xs ${
-          isStale
-            ? 'bg-orange-50 border border-orange-300 text-orange-700'
-            : 'bg-green-50 border border-green-200 text-green-700'
-        }`}
-      >
-        <span className={`text-base ${isStale ? '' : 'animate-pulse'}`}>
-          {isStale ? '🟠' : '🟢'}
-        </span>
-        <span>
-          {isStale ? (
-            <>
-              <strong>Veraltete Daten</strong> – letztes Update: {updatedAt}. Bitte prüfen Sie die
-              Home Assistant Verbindung.
-            </>
-          ) : (
-            <>
-              <strong>Live-Daten</strong> von Home Assistant – aktualisiert: {updatedAt}
-            </>
+      <div className="mb-4 space-y-1">
+        <div
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs ${
+            isStale
+              ? 'bg-orange-50 border border-orange-300 text-orange-700'
+              : 'bg-green-50 border border-green-200 text-green-700'
+          }`}
+        >
+          <span className={`text-base ${isStale ? '' : 'animate-pulse'}`}>
+            {isStale ? '🟠' : '🟢'}
+          </span>
+          <span>
+            {isStale ? (
+              <>
+                <strong>Veraltete Daten</strong> – letztes Update: {updatedAt}. Bitte prüfen Sie die
+                Home Assistant Verbindung.
+              </>
+            ) : (
+              <>
+                <strong>Live-Daten</strong> von Home Assistant – aktualisiert: {updatedAt}
+              </>
+            )}
+          </span>
+          {fetchWarnings.length > 0 && (
+            <span className="ml-auto flex items-center gap-1 text-amber-600 font-semibold">
+              <span>⚠️</span>
+              <span>{fetchWarnings.length} Sensor{fetchWarnings.length > 1 ? 'en' : ''} fehlt</span>
+            </span>
           )}
-        </span>
-        {isLoading && (
-          <span className="ml-auto animate-spin text-sm opacity-60">⏳</span>
+          {isLoading && (
+            <span className="ml-auto animate-spin text-sm opacity-60">⏳</span>
+          )}
+        </div>
+
+        {fetchWarnings.length > 0 && (
+          <details className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            <summary className="cursor-pointer font-semibold">
+              ⚠️ {fetchWarnings.length} optionale{fetchWarnings.length > 1 ? ' Sensoren' : 'r Sensor'} nicht verfügbar
+            </summary>
+            <ul className="mt-1 list-disc list-inside space-y-0.5 opacity-80">
+              {fetchWarnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
     );

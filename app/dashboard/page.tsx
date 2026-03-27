@@ -504,9 +504,14 @@ export default function Dashboard() {
   const simBattery1Soc = Math.max(0, Math.min(100, battery1SocStart + battery1SocChange));
   const simBattery2Soc = Math.max(0, Math.min(100, battery2SocStart + battery2SocChange));
 
-  // Override with live HA data when active (HA provides single combined SOC)
-  const battery1Soc = isLiveActive ? haData!.batterySocPct : simBattery1Soc;
-  const battery2Soc = isLiveActive ? haData!.batterySocPct : simBattery2Soc;
+  // Override with live HA data when active.
+  // batterySocPct is null when no SOC sensor is available → fall back to simulated SOC
+  // so the dashboard stays in "Live" mode without breaking the SOC cards.
+  const liveHaSoc = isLiveActive && haData?.batterySocPct !== null && haData?.batterySocPct !== undefined
+    ? haData.batterySocPct
+    : null;
+  const battery1Soc = liveHaSoc !== null ? liveHaSoc : simBattery1Soc;
+  const battery2Soc = liveHaSoc !== null ? liveHaSoc : simBattery2Soc;
   const avgSoc = (battery1Soc + battery2Soc) / 2;
   
   const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
@@ -914,6 +919,7 @@ export default function Dashboard() {
           errorMessage={haError ?? undefined}
           isFallback={haFallback}
           isStale={isHaStale}
+          warnings={haData?.warnings}
         />
 
         {/* Live HA KPI summary when live data is available */}
@@ -924,8 +930,14 @@ export default function Dashboard() {
               { label: 'Last', value: (haData.houseLoadW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-red-200', valCls: 'text-red-600' },
               { label: 'Netz-Bezug', value: (haData.gridImportW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-gray-200', valCls: 'text-gray-600' },
               { label: 'Netz-Einsp.', value: (haData.gridExportW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-green-200', valCls: 'text-green-600' },
-              { label: 'Bat. SOC', value: haData.batterySocPct.toFixed(0), unit: '%', cardCls: 'border-purple-200', valCls: 'text-purple-600' },
-              { label: 'PV heute', value: haData.pvTodayKwh.toFixed(1), unit: 'kWh', cardCls: 'border-yellow-200', valCls: 'text-yellow-600' },
+              {
+                label: 'Bat. SOC',
+                value: haData.batterySocPct !== null ? haData.batterySocPct.toFixed(0) : '—',
+                unit: haData.batterySocPct !== null ? '%' : 'n/v',
+                cardCls: 'border-purple-200',
+                valCls: haData.batterySocPct !== null ? 'text-purple-600' : 'text-gray-400',
+              },
+              { label: 'PV gesamt', value: haData.pvTotalKwh.toFixed(1), unit: 'kWh', cardCls: 'border-yellow-200', valCls: 'text-yellow-600' },
             ].map(({ label, value, unit, cardCls, valCls }) => (
               <div key={label} className={`bg-white border ${cardCls} rounded-lg p-2 text-center shadow-sm`}>
                 <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">{label}</div>
@@ -1080,6 +1092,11 @@ export default function Dashboard() {
             <div className="mt-1 text-[9px] sm:text-[10px] text-gray-600">
               <span className="font-semibold">{totalBatteryEnergy.toFixed(1)} kWh</span> gespeichert von {building.capacity} kWh
             </div>
+            {isLiveActive && haData?.batterySocPct === null && (
+              <div className="mt-1 text-[9px] sm:text-[10px] text-amber-600 italic">
+                Batterie-SOC nicht verfügbar (simuliert)
+              </div>
+            )}
             <div className="mt-2">
               <MetricSparkline data={socData} currentHour={selectedHour} color="purple" />
             </div>

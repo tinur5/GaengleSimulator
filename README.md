@@ -266,7 +266,9 @@ MIT
 
 ## 🏠 Home Assistant Live Integration
 
-The dashboard supports fetching **real-time energy data** directly from a [Home Assistant](https://www.home-assistant.io/) instance. When configured, a **Live / Simulator** toggle appears in the top-right corner of the dashboard header.
+The dashboard fetches **real-time energy data** directly from a [Home Assistant](https://www.home-assistant.io/) instance using the sensors already present in this installation.  When configured, a **Live / Simulator** toggle appears in the top-right corner of the dashboard header.
+
+> All Home Assistant communication is **server-side only**.  The `HOME_ASSISTANT_TOKEN` is never exposed to the browser.  The frontend exclusively calls the internal `/api/ha/overview` route.
 
 ### Required Environment Variables
 
@@ -277,23 +279,46 @@ The dashboard supports fetching **real-time energy data** directly from a [Home 
 
 ### Sensor Entity IDs
 
-The following Home Assistant sensors must exist in your setup:
+All entity IDs are defined as constants in `lib/haMapper.ts` (`HA_ENTITY_IDS`).
 
-| Entity ID | Meaning |
-|---|---|
-| `sensor.dashboard_pv_power_total` | Current PV production (W) |
-| `sensor.dashboard_battery_power` | Battery power: positive=charging, negative=discharging (W) |
-| `sensor.dashboard_battery_soc` | Battery state of charge (%) |
-| `sensor.dashboard_grid_import_power` | Grid import power (W) |
-| `sensor.dashboard_grid_export_power` | Grid export power (W) |
-| `sensor.dashboard_house_load_power` | Total house load (W) |
-| `sensor.dashboard_pv_energy_today` | PV energy produced today (kWh) |
-| `sensor.dashboard_grid_import_energy_today` | Grid energy imported today (kWh) |
-| `sensor.dashboard_grid_export_energy_today` | Grid energy exported today (kWh) |
-| `sensor.dashboard_battery_charge_energy_today` | Battery charge energy today (kWh) |
-| `sensor.dashboard_battery_discharge_energy_today` | Battery discharge energy today (kWh) |
+#### Required sensors
 
-Entity IDs are configurable as constants in `lib/haMapper.ts` (`HA_ENTITY_IDS`).
+| Entity ID | Payload field | Notes |
+|---|---|---|
+| `sensor.pv_power_raw_combined` | `pvPowerW` | Total PV power (W) |
+| `sensor.battery_power_raw_combined` | `batteryPowerW` | Signed net battery power (W) |
+| `sensor.grid_active_power_raw_combined` | — | Net grid power (used for reference) |
+| `sensor.netzbezug_leistung` | `gridImportW` | Positive grid import only (W) |
+| `sensor.netzeinspeisung_leistung` | `gridExportW` | Positive grid export only (W) |
+| `sensor.battery_charge_power` | `batteryChargeW` | Positive-only charge power (W) |
+| `sensor.battery_discharge_power` | `batteryDischargeW` | Positive-only discharge power (W) |
+| `sensor.hausverbrauch_berechnet` | `houseLoadW` | Total house load (W) |
+| `sensor.battery_status_clean` | `batteryStatus` | Battery status text |
+| `sensor.autarkiegrad_aktuell` | `autarkyPct` | Live autarky % |
+| `sensor.eigenverbrauch_aktuell` | `selfConsumptionPct` | Live self-consumption % |
+| `sensor.energie_status` | `energyStatus` | Energy status text |
+| `sensor.pv_total_generation_combined` | `pvTotalKwh` | Lifetime PV generation (kWh) |
+| `sensor.battery_total_charge_combined` | `batteryChargeTotalKwh` | Lifetime battery charge (kWh) |
+| `sensor.battery_total_discharge_combined` | `batteryDischargeTotalKwh` | Lifetime battery discharge (kWh) |
+| `sensor.goodwe_meter_total_energy_import` | `gridImportTotalKwh` | Lifetime grid import (kWh) |
+| `sensor.goodwe_meter_total_energy_export` | `gridExportTotalKwh` | Lifetime grid export (kWh) |
+
+#### Optional sensors
+
+Missing optional sensors return `0` (or `null` for SOC) and add an entry to the `warnings` array in the API response.  The dashboard stays in **Live** mode even when optional sensors are unavailable.
+
+| Entity ID | Payload field | Fallback |
+|---|---|---|
+| `sensor.epex_spot_ch_chf_kwh` | `currentSpotPriceChfKwh` | `0` |
+| `sensor.lkw_netzbezug_gesamtpreis_chf_kwh` | `totalGridPriceChfKwh` | `0` |
+| `sensor.lkw_netzbezug_kostenrate_chf_h` | `gridCostRateChfH` | `0` |
+| `sensor.lkw_netzbezug_kosten_monat_geschaetzt_chf` | `estimatedMonthlyGridCostChf` | `0` |
+
+#### Battery SOC (optional)
+
+There is currently **no confirmed direct SOC entity** in this installation.  `batterySocPct` is therefore always returned as `null` and the dashboard falls back to the simulated SOC value without switching to Simulator mode entirely.
+
+If a real SOC entity becomes available (e.g. `sensor.battery_soc`), add it to `HA_ENTITY_IDS.batterySoc` in `lib/haMapper.ts` and update `mapHaStatesToOverview` to read it instead of returning `null`.
 
 ### How to Create a Long-Lived Access Token
 
@@ -315,7 +340,9 @@ nano .env.local
 npm run dev
 ```
 
-The dashboard will default to **Live** mode on startup. If Home Assistant is unreachable, it falls back to **Simulator** mode automatically and shows a warning banner.
+The dashboard defaults to **Live** mode on startup.  
+- If Home Assistant is **unreachable or authentication fails**, it falls back to **Simulator** mode and shows a warning banner.
+- If only **optional sensors are missing**, the dashboard stays in Live mode and shows a collapsible warning list.
 
 ### Deploying on Vercel
 
@@ -342,8 +369,8 @@ Browser  →  /api/ha/overview  →  Home Assistant REST API
 | File | Role |
 |---|---|
 | `lib/homeAssistant.ts` | Server-side HA client (fetch + Bearer token + timeout + error classes) |
-| `lib/haMapper.ts` | Normalization helpers, entity ID constants |
-| `types/homeAssistant.ts` | TypeScript types for HA data |
+| `lib/haMapper.ts` | Entity ID constants, normalization helpers, `mapHaStatesToOverview` |
+| `types/homeAssistant.ts` | TypeScript types for HA data (`HaOverviewPayload` etc.) |
 | `app/api/ha/overview/route.ts` | Next.js route handler (server-side only) |
-| `components/HaStatusBanner.tsx` | Live/fallback/stale status banner component |
+| `components/HaStatusBanner.tsx` | Live/fallback/stale/warning status banner component |
 | `lib/haMapper.test.ts` | Normalization unit tests (`npx tsx lib/haMapper.test.ts`) |
