@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Building, Tenant } from '../../lib/models';
 import { calculateTenantConsumption, calculatePVProduction } from '../../lib/simulation';
 import ConsumptionChart from '../../components/ConsumptionChart';
@@ -23,6 +23,15 @@ import { ConsumerNode } from '../../lib/consumerHierarchy';
 import { LKWTariffType, getAllTariffModels } from '../../lib/lkwTariffs';
 import CostOverview from '../../components/CostOverview';
 import { calculateOptimalEnergyFlow, BatteryState } from '../../lib/energyManagement';
+import HaStatusBanner from '../../components/HaStatusBanner';
+import { HaOverviewPayload, isHaError } from '../../types/homeAssistant';
+
+/** How often to poll /api/ha/overview in Live mode (milliseconds) */
+const HA_POLL_INTERVAL_MS = 30_000;
+/** Data is considered stale after this many milliseconds */
+const HA_STALE_THRESHOLD_MS = 2 * 60 * 1000;
+/** Watts to kilowatts conversion factor */
+const W_TO_KW = 1000;
 
 export default function Dashboard() {
   const [building] = useState<Building>({
@@ -75,6 +84,69 @@ export default function Dashboard() {
   
   // Sankey detailed view state - shows individual tenants when enabled (legacy, will be replaced by hierarchy)
   const [sankeyDetailedView, setSankeyDetailedView] = useState<boolean>(false);
+
+  // ---------------------------------------------------------------------------
+  // Home Assistant Live mode state
+  // ---------------------------------------------------------------------------
+  /** 'live' = fetch real HA data; 'simulator' = use simulation only */
+  const [dataSource, setDataSource] = useState<'live' | 'simulator'>('live');
+  const [haData, setHaData] = useState<HaOverviewPayload | null>(null);
+  const [haLoading, setHaLoading] = useState<boolean>(false);
+  const [haError, setHaError] = useState<string | null>(null);
+  /** true when HA failed and we display simulated values as fallback */
+  const [haFallback, setHaFallback] = useState<boolean>(false);
+  const haPollRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchHaOverview = useCallback(async () => {
+    setHaLoading(true);
+    try {
+      const res = await fetch('/api/ha/overview');
+      const json = await res.json();
+      if (!res.ok || isHaError(json)) {
+        // HA unavailable → show fallback banner but keep last data if present
+        setHaError((json as { error?: string }).error ?? 'Home Assistant nicht erreichbar');
+        setHaFallback(true);
+      } else {
+        setHaData(json as HaOverviewPayload);
+        setHaError(null);
+        setHaFallback(false);
+      }
+    } catch {
+      setHaError('Netzwerkfehler beim Abrufen der Live-Daten');
+      setHaFallback(true);
+    } finally {
+      setHaLoading(false);
+    }
+  }, []);
+
+  // Start/stop HA polling when data source changes
+  useEffect(() => {
+    if (dataSource === 'live') {
+      fetchHaOverview();
+      haPollRef.current = setInterval(fetchHaOverview, HA_POLL_INTERVAL_MS);
+    } else {
+      if (haPollRef.current) {
+        clearInterval(haPollRef.current);
+        haPollRef.current = null;
+      }
+      setHaFallback(false);
+    }
+    return () => {
+      if (haPollRef.current) {
+        clearInterval(haPollRef.current);
+        haPollRef.current = null;
+      }
+    };
+  }, [dataSource, fetchHaOverview]);
+
+  /** Whether live HA data is stale (older than HA_STALE_THRESHOLD_MS) */
+  const isHaStale = useMemo(() => {
+    if (!haData?.timestamp) return false;
+    return Date.now() - new Date(haData.timestamp).getTime() > HA_STALE_THRESHOLD_MS;
+  }, [haData]);
+
+  /** True when we should display HA live values instead of simulation values */
+  const isLiveActive = dataSource === 'live' && haData !== null && !haFallback;
   
   // Live mode effect
   useEffect(() => {
@@ -151,12 +223,24 @@ export default function Dashboard() {
 
   const month = selectedDate.getMonth() + 1;
   const dayOfWeek = selectedDate.getDay();
-  const pvProduction = calculatePVProduction(building.pvPeakKw, selectedHour, month, building.efficiency);
+  const simPvProduction = calculatePVProduction(building.pvPeakKw, selectedHour, month, building.efficiency);
   const houseConsumption = tenants.reduce((sum, t) => sum + calculateTenantConsumption(t, selectedHour, dayOfWeek, month), 0);
   const commonAreaData = getCommonAreaConsumption(selectedHour, month);
   const commonConsumption = Object.values(commonAreaData).reduce((a: number, b: any) => a + b, 0);
-  const totalConsumption = houseConsumption + commonConsumption;
-  const netFlow = pvProduction - totalConsumption;
+  const simTotalConsumption = houseConsumption + commonConsumption;
+  const simNetFlow = simPvProduction - simTotalConsumption;
+
+  // ---------------------------------------------------------------------------
+  // Live HA data overlay – when live mode is active, replace simulation values
+  // ---------------------------------------------------------------------------
+  /** PV production in kW (display) */
+  const pvProduction = isLiveActive ? (haData!.pvPowerW / W_TO_KW) : simPvProduction;
+  /** Total house load in kW (display) */
+  const totalConsumption = isLiveActive ? (haData!.houseLoadW / W_TO_KW) : simTotalConsumption;
+  /** Net flow in kW (positive = surplus, negative = deficit) */
+  const netFlow = isLiveActive
+    ? ((haData!.pvPowerW - haData!.houseLoadW) / W_TO_KW)
+    : simNetFlow;
 
   // Build hierarchical consumer tree
   const consumerTree = useMemo(() => {
@@ -417,8 +501,12 @@ export default function Dashboard() {
   }
   
   // Current SOC after this hour's flow (clamped to valid range)
-  const battery1Soc = Math.max(0, Math.min(100, battery1SocStart + battery1SocChange));
-  const battery2Soc = Math.max(0, Math.min(100, battery2SocStart + battery2SocChange));
+  const simBattery1Soc = Math.max(0, Math.min(100, battery1SocStart + battery1SocChange));
+  const simBattery2Soc = Math.max(0, Math.min(100, battery2SocStart + battery2SocChange));
+
+  // Override with live HA data when active (HA provides single combined SOC)
+  const battery1Soc = isLiveActive ? haData!.batterySocPct : simBattery1Soc;
+  const battery2Soc = isLiveActive ? haData!.batterySocPct : simBattery2Soc;
   const avgSoc = (battery1Soc + battery2Soc) / 2;
   
   const battery1Energy = (battery1Soc / 100) * building.batteries[0].capacityKwh;
@@ -459,20 +547,35 @@ export default function Dashboard() {
   // Use individual battery net flows for accurate direction status
   const battery1Result = getBatteryDirection(netFlow1, battery1Soc);
   const battery2Result = getBatteryDirection(netFlow2, battery2Soc);
-  const battery1Direction = battery1Result.direction;
-  const battery2Direction = battery2Result.direction;
-  const battery1Reason = battery1Result.reason;
-  const battery2Reason = battery2Result.reason;
+
+  // Override battery direction with live HA data when available
+  const liveHaBatteryDirection = (): 'charging' | 'discharging' | 'idle' => {
+    if (!isLiveActive || !haData) return battery1Result.direction;
+    if (haData.batteryChargeW > 100) return 'charging';
+    if (haData.batteryDischargeW > 100) return 'discharging';
+    return 'idle';
+  };
+  const liveHaBatteryReason = (dir: 'charging' | 'discharging' | 'idle'): string => {
+    if (dir === 'charging') return 'Live: PV-Überschuss (HA)';
+    if (dir === 'discharging') return 'Live: Entladen (HA)';
+    return 'Live: Ruhezustand (HA)';
+  };
+
+  const liveDir = liveHaBatteryDirection();
+  const battery1Direction = isLiveActive ? liveDir : battery1Result.direction;
+  const battery2Direction = isLiveActive ? liveDir : battery2Result.direction;
+  const battery1Reason = isLiveActive ? liveHaBatteryReason(liveDir) : battery1Result.reason;
+  const battery2Reason = isLiveActive ? battery1Reason : battery2Result.reason;
 
   // Build Sankey data using hierarchical tree
   const sankeyData = useMemo(() => {
     const energyFlow: EnergyFlowData = {
-      pvProductionW: pvProduction * 1000, // Convert kW to W
+      pvProductionW: pvProduction * W_TO_KW,
       battery1SocPercent: battery1Soc,
       battery2SocPercent: battery2Soc,
       battery1Direction,
       battery2Direction,
-      netFlowW: netFlow * 1000, // Convert kW to W
+      netFlowW: netFlow * W_TO_KW,
     };
     
     return buildSankeyData(consumerTree, sankeyFocusNodeId, energyFlow, showAssumptions);
@@ -592,23 +695,50 @@ export default function Dashboard() {
               <p className="text-sm text-gray-600">59.8 kWp PV • 2× 20 kWh Batterien • 2× Goodwe GW29.9KN-ET • <span className="text-xs text-gray-500">v{APP_VERSION}</span></p>
 
             </div>
-            <button
-              onClick={() => setIsControlBarExpanded(!isControlBarExpanded)}
-              className="p-2 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
-              aria-label={isControlBarExpanded ? "Steuerelemente einklappen" : "Steuerelemente ausklappen"}
-            >
-              {isControlBarExpanded ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <title>Einklappen</title>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <title>Ausklappen</title>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              )}
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Data source toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
+                <button
+                  onClick={() => setDataSource('live')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    dataSource === 'live'
+                      ? 'bg-white text-green-700 shadow font-bold'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="Live-Daten von Home Assistant"
+                >
+                  🟢 Live
+                </button>
+                <button
+                  onClick={() => setDataSource('simulator')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    dataSource === 'simulator'
+                      ? 'bg-white text-indigo-700 shadow font-bold'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="Simulierte Werte"
+                >
+                  🧪 Simulator
+                </button>
+              </div>
+              <button
+                onClick={() => setIsControlBarExpanded(!isControlBarExpanded)}
+                className="p-2 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
+                aria-label={isControlBarExpanded ? "Steuerelemente einklappen" : "Steuerelemente ausklappen"}
+              >
+                {isControlBarExpanded ? (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <title>Einklappen</title>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <title>Ausklappen</title>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Date and Time controls - always visible for mobile optimization */}
@@ -775,8 +905,39 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
-        {/* Data Context Banner */}
-        <DataContextBanner selectedDate={selectedDate} selectedHour={selectedHour} />
+        {/* HA Live / Simulator status banner */}
+        <HaStatusBanner
+          mode={dataSource}
+          liveData={haData}
+          isLoading={haLoading}
+          hasError={haError !== null}
+          errorMessage={haError ?? undefined}
+          isFallback={haFallback}
+          isStale={isHaStale}
+        />
+
+        {/* Live HA KPI summary when live data is available */}
+        {isLiveActive && haData && (
+          <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {[
+              { label: 'PV', value: (haData.pvPowerW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-orange-200', valCls: 'text-orange-600' },
+              { label: 'Last', value: (haData.houseLoadW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-red-200', valCls: 'text-red-600' },
+              { label: 'Netz-Bezug', value: (haData.gridImportW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-gray-200', valCls: 'text-gray-600' },
+              { label: 'Netz-Einsp.', value: (haData.gridExportW / W_TO_KW).toFixed(1), unit: 'kW', cardCls: 'border-green-200', valCls: 'text-green-600' },
+              { label: 'Bat. SOC', value: haData.batterySocPct.toFixed(0), unit: '%', cardCls: 'border-purple-200', valCls: 'text-purple-600' },
+              { label: 'PV heute', value: haData.pvTodayKwh.toFixed(1), unit: 'kWh', cardCls: 'border-yellow-200', valCls: 'text-yellow-600' },
+            ].map(({ label, value, unit, cardCls, valCls }) => (
+              <div key={label} className={`bg-white border ${cardCls} rounded-lg p-2 text-center shadow-sm`}>
+                <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">{label}</div>
+                <div className={`text-lg font-bold ${valCls}`}>{value}</div>
+                <div className="text-[10px] text-gray-400">{unit}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Data Context Banner (simulator only) */}
+        {!isLiveActive && <DataContextBanner selectedDate={selectedDate} selectedHour={selectedHour} />}
 
         {/* Plausibility Warnings */}
         <PlausibilityWarnings

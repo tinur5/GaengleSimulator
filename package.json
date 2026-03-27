@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:email": "tsx test-email-fallback.ts"
+    "test:email": "tsx test-email-fallback.ts",
+    "test:ha-mapper": "tsx lib/haMapper.test.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.9",
