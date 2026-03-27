@@ -10,22 +10,44 @@ export interface HaEntityState {
 // Normalized dashboard payload returned by /api/ha/overview
 export interface HaOverviewPayload {
   timestamp: string;
+
+  // Live power (W)
   pvPowerW: number;
-  batteryPowerW: number;       // positive = charging, negative = discharging
-  batterySocPct: number;
+  batteryPowerW: number;          // signed net battery power (positive = charging)
+  batteryChargeW: number;         // explicit positive-only charging power
+  batteryDischargeW: number;      // explicit positive-only discharging power
   gridImportW: number;
   gridExportW: number;
   houseLoadW: number;
-  pvTodayKwh: number;
-  importTodayKwh: number;
-  exportTodayKwh: number;
-  batteryChargeTodayKwh: number;
-  batteryDischargeTodayKwh: number;
-  systemStatus: string;
+
+  // Battery SOC – optional (null when sensor is unavailable)
+  batterySocPct: number | null;
+
+  // Status strings from HA
+  batteryStatus: string;          // sensor.battery_status_clean
+  energyStatus: string;           // sensor.energie_status
+
+  // Live percentages from HA
+  autarkyPct: number;             // sensor.autarkiegrad_aktuell
+  selfConsumptionPct: number;     // sensor.eigenverbrauch_aktuell
+
+  // Energy totals (lifetime / all-time cumulative kWh)
+  pvTotalKwh: number;
+  batteryChargeTotalKwh: number;
+  batteryDischargeTotalKwh: number;
+  gridImportTotalKwh: number;
+  gridExportTotalKwh: number;
+
+  // Price / cost (CHF)
+  currentSpotPriceChfKwh: number;
+  totalGridPriceChfKwh: number;
+  gridCostRateChfH: number;
+  estimatedMonthlyGridCostChf: number;
+
   source: 'home-assistant';
-  // Derived convenience fields
-  batteryChargeW: number;      // max(batteryPowerW, 0)
-  batteryDischargeW: number;   // max(-batteryPowerW, 0)
+
+  // Warnings for missing optional entities
+  warnings: string[];
 }
 
 // KPI card data for UI display

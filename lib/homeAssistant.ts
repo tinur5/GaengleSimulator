@@ -58,6 +58,58 @@ export async function fetchHaEntities(entityIds: string[]): Promise<HaEntityStat
   return Promise.all(entityIds.map((id) => fetchHaEntity(id)));
 }
 
+/**
+ * Fetches multiple Home Assistant entity states in parallel, tolerating
+ * individual entity failures (e.g. entity not found / temporarily unavailable).
+ *
+ * - HaConfigError / HaAuthError are always re-thrown immediately (fatal).
+ * - Per-entity network / timeout errors become warnings in the returned object.
+ * - If ALL entities fail, throws HaNetworkError (HA likely unreachable).
+ */
+export async function fetchHaEntitiesPartial(entityIds: string[]): Promise<{
+  states: Record<string, HaEntityState>;
+  warnings: string[];
+}> {
+  // Check config once upfront so we get a clean HaConfigError, not N errors
+  const baseUrl = process.env.HOME_ASSISTANT_URL;
+  const token = process.env.HOME_ASSISTANT_TOKEN;
+  if (!baseUrl || !token) {
+    throw new HaConfigError('HOME_ASSISTANT_URL or HOME_ASSISTANT_TOKEN is not configured');
+  }
+
+  const results = await Promise.allSettled(entityIds.map((id) => fetchHaEntity(id)));
+
+  const states: Record<string, HaEntityState> = {};
+  const warnings: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const entityId = entityIds[i];
+
+    if (result.status === 'fulfilled') {
+      states[entityId] = result.value;
+    } else {
+      const err = result.reason;
+      // Auth failure is always fatal
+      if (err instanceof HaAuthError) {
+        throw err;
+      }
+      warnings.push(
+        `${entityId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // If nothing succeeded HA is completely unreachable
+  if (Object.keys(states).length === 0) {
+    throw new HaNetworkError(
+      'All entity fetches failed – Home Assistant may be unreachable',
+    );
+  }
+
+  return { states, warnings };
+}
+
 // ---------------------------------------------------------------------------
 // Typed error classes
 // ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ assert.strictEqual(parseHaFloatOr('0', 99), 0, '"0" → 0 (not fallback)');
 assert.strictEqual(parseHaFloatOr(null, 5), 5, 'null → fallback');
 
 // ---------------------------------------------------------------------------
-// mapHaStatesToOverview
+// mapHaStatesToOverview – real entity IDs
 // ---------------------------------------------------------------------------
 function makeState(entity_id: string, state: string): HaEntityState {
   return {
@@ -42,37 +42,68 @@ function makeState(entity_id: string, state: string): HaEntityState {
 }
 
 const states: Record<string, HaEntityState> = {
-  'sensor.dashboard_pv_power_total': makeState('sensor.dashboard_pv_power_total', '5000'),
-  'sensor.dashboard_battery_power': makeState('sensor.dashboard_battery_power', '-1500'),
-  'sensor.dashboard_battery_soc': makeState('sensor.dashboard_battery_soc', '72'),
-  'sensor.dashboard_grid_import_power': makeState('sensor.dashboard_grid_import_power', '0'),
-  'sensor.dashboard_grid_export_power': makeState('sensor.dashboard_grid_export_power', '3200'),
-  'sensor.dashboard_house_load_power': makeState('sensor.dashboard_house_load_power', '1800'),
-  'sensor.dashboard_pv_energy_today': makeState('sensor.dashboard_pv_energy_today', '28.5'),
-  'sensor.dashboard_grid_import_energy_today': makeState('sensor.dashboard_grid_import_energy_today', '0.3'),
-  'sensor.dashboard_grid_export_energy_today': makeState('sensor.dashboard_grid_export_energy_today', '15.2'),
-  'sensor.dashboard_battery_charge_energy_today': makeState('sensor.dashboard_battery_charge_energy_today', '12.1'),
-  'sensor.dashboard_battery_discharge_energy_today': makeState('sensor.dashboard_battery_discharge_energy_today', '8.4'),
+  'sensor.pv_power_raw_combined':           makeState('sensor.pv_power_raw_combined', '5000'),
+  'sensor.battery_power_raw_combined':      makeState('sensor.battery_power_raw_combined', '-1500'),
+  'sensor.grid_active_power_raw_combined':  makeState('sensor.grid_active_power_raw_combined', '-3200'),
+  'sensor.netzbezug_leistung':              makeState('sensor.netzbezug_leistung', '0'),
+  'sensor.netzeinspeisung_leistung':        makeState('sensor.netzeinspeisung_leistung', '3200'),
+  'sensor.battery_charge_power':            makeState('sensor.battery_charge_power', '0'),
+  'sensor.battery_discharge_power':         makeState('sensor.battery_discharge_power', '1500'),
+  'sensor.hausverbrauch_berechnet':         makeState('sensor.hausverbrauch_berechnet', '1800'),
+  'sensor.battery_status_clean':            makeState('sensor.battery_status_clean', 'Entladen'),
+  'sensor.autarkiegrad_aktuell':            makeState('sensor.autarkiegrad_aktuell', '92.5'),
+  'sensor.eigenverbrauch_aktuell':          makeState('sensor.eigenverbrauch_aktuell', '36.0'),
+  'sensor.energie_status':                  makeState('sensor.energie_status', 'Überschuss'),
+  'sensor.pv_total_generation_combined':    makeState('sensor.pv_total_generation_combined', '12345.6'),
+  'sensor.battery_total_charge_combined':   makeState('sensor.battery_total_charge_combined', '3000.0'),
+  'sensor.battery_total_discharge_combined': makeState('sensor.battery_total_discharge_combined', '2800.0'),
+  'sensor.goodwe_meter_total_energy_import': makeState('sensor.goodwe_meter_total_energy_import', '500.0'),
+  'sensor.goodwe_meter_total_energy_export': makeState('sensor.goodwe_meter_total_energy_export', '8000.0'),
+  'sensor.epex_spot_ch_chf_kwh':            makeState('sensor.epex_spot_ch_chf_kwh', '0.085'),
+  'sensor.lkw_netzbezug_gesamtpreis_chf_kwh': makeState('sensor.lkw_netzbezug_gesamtpreis_chf_kwh', '0.242'),
+  'sensor.lkw_netzbezug_kostenrate_chf_h':  makeState('sensor.lkw_netzbezug_kostenrate_chf_h', '0.0'),
+  'sensor.lkw_netzbezug_kosten_monat_geschaetzt_chf': makeState('sensor.lkw_netzbezug_kosten_monat_geschaetzt_chf', '12.50'),
 };
 
 const payload = mapHaStatesToOverview(states);
 
 assert.strictEqual(payload.pvPowerW, 5000, 'pvPowerW');
 assert.strictEqual(payload.batteryPowerW, -1500, 'batteryPowerW (negative = discharging)');
-assert.strictEqual(payload.batteryChargeW, 0, 'batteryChargeW = max(-1500, 0) = 0');
-assert.strictEqual(payload.batteryDischargeW, 1500, 'batteryDischargeW = max(1500, 0) = 1500');
-assert.strictEqual(payload.batterySocPct, 72, 'batterySocPct');
+// Explicit discharge sensor is preferred over deriving from net power
+assert.strictEqual(payload.batteryChargeW, 0, 'batteryChargeW from explicit sensor');
+assert.strictEqual(payload.batteryDischargeW, 1500, 'batteryDischargeW from explicit sensor');
 assert.strictEqual(payload.gridImportW, 0, 'gridImportW');
 assert.strictEqual(payload.gridExportW, 3200, 'gridExportW');
 assert.strictEqual(payload.houseLoadW, 1800, 'houseLoadW');
-assert.strictEqual(payload.pvTodayKwh, 28.5, 'pvTodayKwh');
+assert.strictEqual(payload.batteryStatus, 'Entladen', 'batteryStatus');
+assert.strictEqual(payload.autarkyPct, 92.5, 'autarkyPct');
+assert.strictEqual(payload.selfConsumptionPct, 36.0, 'selfConsumptionPct');
+assert.strictEqual(payload.energyStatus, 'Überschuss', 'energyStatus');
+assert.strictEqual(payload.pvTotalKwh, 12345.6, 'pvTotalKwh');
+assert.strictEqual(payload.batteryChargeTotalKwh, 3000.0, 'batteryChargeTotalKwh');
+assert.strictEqual(payload.batteryDischargeTotalKwh, 2800.0, 'batteryDischargeTotalKwh');
+assert.strictEqual(payload.gridImportTotalKwh, 500.0, 'gridImportTotalKwh');
+assert.strictEqual(payload.gridExportTotalKwh, 8000.0, 'gridExportTotalKwh');
+assert.strictEqual(payload.currentSpotPriceChfKwh, 0.085, 'currentSpotPriceChfKwh');
+assert.strictEqual(payload.totalGridPriceChfKwh, 0.242, 'totalGridPriceChfKwh');
+assert.strictEqual(payload.gridCostRateChfH, 0.0, 'gridCostRateChfH');
+assert.strictEqual(payload.estimatedMonthlyGridCostChf, 12.5, 'estimatedMonthlyGridCostChf');
 assert.strictEqual(payload.source, 'home-assistant', 'source');
 
-// Grid import/export: both can never be simultaneously positive from real data
-// If raw import is negative, it should be clamped to 0
+// Battery SOC is always null (no direct SOC entity mapped)
+assert.strictEqual(payload.batterySocPct, null, 'batterySocPct is null when no SOC entity');
+
+// warnings array is always present; SOC warning is always included
+assert.ok(Array.isArray(payload.warnings), 'warnings is an array');
+assert.ok(
+  payload.warnings.some((w) => w.includes('Battery SOC sensor not mapped')),
+  'SOC warning present in warnings array',
+);
+
+// Grid import/export: negative raw import must be clamped to 0
 const statesNegImport = {
   ...states,
-  'sensor.dashboard_grid_import_power': makeState('sensor.dashboard_grid_import_power', '-50'),
+  'sensor.netzbezug_leistung': makeState('sensor.netzbezug_leistung', '-50'),
 };
 const p2 = mapHaStatesToOverview(statesNegImport);
 assert.strictEqual(p2.gridImportW, 0, 'negative gridImportW clamped to 0');
@@ -80,9 +111,28 @@ assert.strictEqual(p2.gridImportW, 0, 'negative gridImportW clamped to 0');
 // Unavailable sensor values default to 0
 const statesUnavailable = {
   ...states,
-  'sensor.dashboard_pv_power_total': makeState('sensor.dashboard_pv_power_total', 'unavailable'),
+  'sensor.pv_power_raw_combined': makeState('sensor.pv_power_raw_combined', 'unavailable'),
 };
 const p3 = mapHaStatesToOverview(statesUnavailable);
 assert.strictEqual(p3.pvPowerW, 0, 'unavailable sensor → 0');
+
+// Price sensor unavailable → 0 and warning added
+const statesNoPrice = {
+  ...states,
+  'sensor.epex_spot_ch_chf_kwh': makeState('sensor.epex_spot_ch_chf_kwh', 'unavailable'),
+};
+const p4 = mapHaStatesToOverview(statesNoPrice);
+assert.strictEqual(p4.currentSpotPriceChfKwh, 0, 'unavailable price sensor → 0');
+assert.ok(
+  p4.warnings.some((w) => w.includes('sensor.epex_spot_ch_chf_kwh')),
+  'missing price sensor appears in warnings',
+);
+
+// fetchWarnings merged into payload warnings
+const p5 = mapHaStatesToOverview(states, ['sensor.some_entity: fetch failed']);
+assert.ok(
+  p5.warnings.some((w) => w.includes('fetch failed')),
+  'fetchWarnings merged into payload warnings',
+);
 
 console.log('✅ All haMapper tests passed');
