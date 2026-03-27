@@ -262,3 +262,88 @@ GITHUB_REPO=tinur5/GaengleSimulator
 ## License
 
 MIT
+---
+
+## 🏠 Home Assistant Live Integration
+
+The dashboard supports fetching **real-time energy data** directly from a [Home Assistant](https://www.home-assistant.io/) instance. When configured, a **Live / Simulator** toggle appears in the top-right corner of the dashboard header.
+
+### Required Environment Variables
+
+| Variable | Description |
+|---|---|
+| `HOME_ASSISTANT_URL` | Base URL of your Home Assistant instance (e.g. `https://my-ha.duckdns.org:8123`) |
+| `HOME_ASSISTANT_TOKEN` | Long-Lived Access Token from Home Assistant (see below) |
+
+### Sensor Entity IDs
+
+The following Home Assistant sensors must exist in your setup:
+
+| Entity ID | Meaning |
+|---|---|
+| `sensor.dashboard_pv_power_total` | Current PV production (W) |
+| `sensor.dashboard_battery_power` | Battery power: positive=charging, negative=discharging (W) |
+| `sensor.dashboard_battery_soc` | Battery state of charge (%) |
+| `sensor.dashboard_grid_import_power` | Grid import power (W) |
+| `sensor.dashboard_grid_export_power` | Grid export power (W) |
+| `sensor.dashboard_house_load_power` | Total house load (W) |
+| `sensor.dashboard_pv_energy_today` | PV energy produced today (kWh) |
+| `sensor.dashboard_grid_import_energy_today` | Grid energy imported today (kWh) |
+| `sensor.dashboard_grid_export_energy_today` | Grid energy exported today (kWh) |
+| `sensor.dashboard_battery_charge_energy_today` | Battery charge energy today (kWh) |
+| `sensor.dashboard_battery_discharge_energy_today` | Battery discharge energy today (kWh) |
+
+Entity IDs are configurable as constants in `lib/haMapper.ts` (`HA_ENTITY_IDS`).
+
+### How to Create a Long-Lived Access Token
+
+1. Open Home Assistant → click your profile (bottom-left)
+2. Scroll to **Long-lived access tokens**
+3. Click **Create Token**, give it a name (e.g. `GaengleSimulator`)
+4. Copy the token — it is only shown once
+
+### Running Locally
+
+```bash
+# Copy and fill in the env variables
+cp .env.example .env.local
+
+# Edit .env.local and set HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN
+nano .env.local
+
+# Start dev server
+npm run dev
+```
+
+The dashboard will default to **Live** mode on startup. If Home Assistant is unreachable, it falls back to **Simulator** mode automatically and shows a warning banner.
+
+### Deploying on Vercel
+
+1. In the Vercel project → **Settings → Environment Variables**
+2. Add `HOME_ASSISTANT_URL` and `HOME_ASSISTANT_TOKEN` as **Production** secrets
+3. **Do not** add them to client-side environment (no `NEXT_PUBLIC_` prefix)
+
+The API route (`/api/ha/overview`) uses 15-second ISR revalidation, which keeps the Vercel edge cache fresh without hammering Home Assistant.
+
+### Security Architecture
+
+```
+Browser  →  /api/ha/overview  →  Home Assistant REST API
+              (server-side)        Bearer token never leaves server
+```
+
+- The `HOME_ASSISTANT_TOKEN` is **never exposed to the browser**
+- All Home Assistant communication happens in `app/api/ha/overview/route.ts` and `lib/homeAssistant.ts` (server-side only)
+- The frontend (`app/dashboard/page.tsx`) only calls internal `/api/ha/overview`
+- The token is read exclusively from server-side environment variables
+
+### Architecture Files
+
+| File | Role |
+|---|---|
+| `lib/homeAssistant.ts` | Server-side HA client (fetch + Bearer token + timeout + error classes) |
+| `lib/haMapper.ts` | Normalization helpers, entity ID constants |
+| `types/homeAssistant.ts` | TypeScript types for HA data |
+| `app/api/ha/overview/route.ts` | Next.js route handler (server-side only) |
+| `components/HaStatusBanner.tsx` | Live/fallback/stale status banner component |
+| `lib/haMapper.test.ts` | Normalization unit tests (`npx tsx lib/haMapper.test.ts`) |
