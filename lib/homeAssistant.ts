@@ -8,14 +8,35 @@ const DEFAULT_TIMEOUT_MS = 8000;
  * Reads HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN from environment variables.
  */
 export async function fetchHaEntity(entityId: string): Promise<HaEntityState> {
-  const baseUrl = process.env.HOME_ASSISTANT_URL;
-  const token = process.env.HOME_ASSISTANT_TOKEN;
+  const baseUrl = (process.env.HOME_ASSISTANT_URL ?? '').trim();
+  const token = (process.env.HOME_ASSISTANT_TOKEN ?? '').trim();
 
-  if (!baseUrl || !token) {
-    throw new HaConfigError('HOME_ASSISTANT_URL or HOME_ASSISTANT_TOKEN is not configured');
+  if (!baseUrl && !token) {
+    throw new HaConfigError(
+      'Umgebungsvariablen HOME_ASSISTANT_URL und HOME_ASSISTANT_TOKEN sind nicht gesetzt.',
+    );
+  }
+  if (!baseUrl) {
+    throw new HaConfigError(
+      'Umgebungsvariable HOME_ASSISTANT_URL ist nicht gesetzt.',
+    );
+  }
+  if (!token) {
+    throw new HaConfigError(
+      'Umgebungsvariable HOME_ASSISTANT_TOKEN ist nicht gesetzt.',
+    );
   }
 
-  const url = `${baseUrl.replace(/\/$/, '')}/api/states/${entityId}`;
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(baseUrl);
+  } catch {
+    throw new HaConfigError(
+      `HOME_ASSISTANT_URL ist keine gültige URL: "${baseUrl}". Beispiel: https://homeassistant.local:8123`,
+    );
+  }
+
+  const url = `${parsedUrl.href.replace(/\/$/, '')}/api/states/${entityId}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
@@ -33,19 +54,24 @@ export async function fetchHaEntity(entityId: string): Promise<HaEntityState> {
     });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new HaTimeoutError(`Request to Home Assistant timed out after ${DEFAULT_TIMEOUT_MS}ms`);
+      const timeoutSec = DEFAULT_TIMEOUT_MS / 1000;
+      throw new HaTimeoutError(`Verbindung zu Home Assistant hat nach ${timeoutSec}s das Zeitlimit überschritten. Bitte prüfen Sie, ob Home Assistant erreichbar ist.`);
     }
-    throw new HaNetworkError(`Network error fetching entity ${entityId}: ${String(err)}`);
+    throw new HaNetworkError(`Netzwerkfehler beim Abruf von "${entityId}": ${String(err)}`);
   } finally {
     clearTimeout(timeoutId);
   }
 
   if (response.status === 401 || response.status === 403) {
-    throw new HaAuthError(`Home Assistant authentication failed (HTTP ${response.status})`);
+    throw new HaAuthError(`Home Assistant Authentifizierung fehlgeschlagen (HTTP ${response.status}). Bitte prüfen Sie den Access Token.`);
+  }
+
+  if (response.status === 404) {
+    throw new HaNetworkError(`Sensor "${entityId}" nicht in Home Assistant gefunden (HTTP 404). Bitte prüfen Sie die Sensor-IDs.`);
   }
 
   if (!response.ok) {
-    throw new HaNetworkError(`Home Assistant returned HTTP ${response.status} for entity ${entityId}`);
+    throw new HaNetworkError(`Home Assistant antwortete mit HTTP ${response.status} für Sensor "${entityId}".`);
   }
 
   return response.json() as Promise<HaEntityState>;

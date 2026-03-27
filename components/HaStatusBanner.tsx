@@ -56,6 +56,18 @@ export default function HaStatusBanner({
             Die angezeigten Werte werden simuliert. Sobald die Verbindung
             wiederhergestellt ist, wechselt das Dashboard automatisch zu Live-Daten.
           </p>
+          <p className="mt-1 opacity-70">
+            Diagnose:{' '}
+            <a
+              href="/api/ha/status"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:opacity-100"
+            >
+              /api/ha/status
+            </a>{' '}
+            aufrufen, um den Verbindungsstatus zu prüfen.
+          </p>
         </div>
       </div>
     );
